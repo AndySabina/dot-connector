@@ -13,3 +13,7 @@ inspection-helper/
 .codex/
 .mcp.json
 /opencode.json
+
+# Local per-user settings never belong in source/release assets
+.private/
+*.private.json
