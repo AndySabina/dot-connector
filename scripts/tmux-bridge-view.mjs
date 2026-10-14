@@ -4,10 +4,21 @@ import {createInterface} from 'node:readline';
 import {randomUUID} from 'node:crypto';
 import {connectLocal} from '../src/tmux-local.mjs';
 import {safeScreen} from '../src/tmux-bridge.mjs';
-const [socket,mode,...extra]=process.argv.slice(2);
+import {resolveInstance,sameBinding} from '../src/human-instances.mjs';
+let [socket,mode,...extra]=process.argv.slice(2),expected;
+if(socket==='--config'){
+ try{
+  const [selection,id,once,...rest]=extra;
+  if(selection!=='--instance'||!id||rest.length||(once&&once!=='--once'))throw Error('INSTANCE_SELECTION_REQUIRED');
+  const resolved=await resolveInstance(mode,id);socket=resolved.socket;expected=resolved.binding;mode=once;extra=[];
+ }catch(e){console.error(/^(INSTANCE|CONFIG)_[A-Z_]+$/.test(e.message)?e.message:'INSTANCE_DISCOVERY_FAILED');process.exit(2);}
+}
 if(!socket||extra.length||(mode&&mode!=='--once')){console.error('Usage: tmux-bridge-view.mjs SOCKET [--once]');process.exitCode=2;}
 else {
-  const client=await connectLocal(socket,'human'),binding=client.identity;let after=0,reading=false,closed=false,lastView=null;
+  let client;
+  try{client=await connectLocal(socket,'human');if(expected&&!sameBinding(expected,client.identity)){client.close();throw Error('INSTANCE_BINDING_MISMATCH');}}
+  catch(e){console.error(/^[A-Z_]+$/.test(e.message)?e.message:'VIEW_CONNECTION_FAILED');process.exit(1);}
+  const binding=client.identity;let after=0,reading=false,closed=false,lastView=null;
   const read=async()=>{if(reading||closed)return;reading=true;try{
     const r=await client.request({action:'read',binding,after});after=r.sequence;
     const screen=safeScreen(r.text),truncated=Boolean(r.truncated||screen.truncated);

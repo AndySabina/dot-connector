@@ -144,3 +144,5 @@ Failure-path tests use synthetic data. These checks do not prove cloud delivery.
 
 UNLICENSED. Public visibility does not grant permission to reuse, modify or
 redistribute this code. npm publication remains disabled with private=true.
+
+Operator discovery for experimental configured instances: [local guide](docs/HUMAN-DISCOVERY.md), [0.1.13 notes](docs/RELEASE-0.1.13.md).
