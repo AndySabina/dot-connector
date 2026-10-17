@@ -1,7 +1,7 @@
 # Phase 3 — Paths
 
 Phase branch: `target-routing/p3-paths` (PR targets `target-routing/tracker`).
-**Status: in progress.** Proposal and reference code only; see
+**Status: children complete; awaiting review.** Proposal and reference code only; see
 [PLAN.md](PLAN.md) for the full chain.
 
 ## What this is
@@ -45,7 +45,7 @@ same fields as the phase 1 target.
 |---|---|---|---|---|---|
 | p3a | `target-routing/p3a-windows-paths` | `p3-paths` | Windows rules: separators, case, drives, UNC, device namespaces, reserved names, `..` | ~350 | ✅ [P3A-WINDOWS-PATHS.md](P3A-WINDOWS-PATHS.md) |
 | p3b | `target-routing/p3b-wsl-paths` | `p3a-windows-paths` | WSL rules, path-space dispatcher, `C:\` ↔ `/mnt/c/` rejection | ~280 | ✅ [P3B-WSL-PATHS.md](P3B-WSL-PATHS.md) |
-| p3c | `target-routing/p3c-executor-checks` | `p3b-wsl-paths` | Documentation of checks only the executor can make on the real filesystem | ~120 | ⏳ Planned |
+| p3c | `target-routing/p3c-executor-checks` | `p3b-wsl-paths` | Documentation of checks only the executor can make on the real filesystem | ~120 | ✅ [P3C-EXECUTOR-CHECKS.md](P3C-EXECUTOR-CHECKS.md) |
 
 ## Limits
 
