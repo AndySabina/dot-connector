@@ -1,0 +1,58 @@
+// Lab-only reference model. Pure text checks: no filesystem access, so links,
+// junctions, mounts, short names and per-directory case rules are executor checks.
+import path from 'node:path';
+
+const INPUT_LIMIT = 1024;
+const ROOT_LIMIT = 512;
+const controls = /[\x00-\x1f\x7f-\x9f]/;
+const forbidden = /[:*?"<>|]/;
+const reserved = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
+const driveAbsolute = /^[A-Za-z]:\\/;
+const uncPrefix = /^\\\\[^\\]+\\[^\\]+(\\|$)/;
+
+const verdict = value => Object.freeze(value);
+const refuse = reason => verdict({ok: false, reason});
+
+// Segment problems Windows would hide by stripping or reinterpreting the name.
+function segmentProblem(text) {
+  for (const segment of text.split('\\')) {
+    if (!segment || segment === '.' || segment === '..' || /^[A-Za-z]:$/.test(segment)) continue;
+    if (reserved.test(segment)) return 'PATH_RESERVED_NAME';
+    if (/[. ]$/.test(segment)) return 'PATH_TRAILING_DOT_SPACE';
+  }
+  return null;
+}
+
+function validWindowsRoot(root) {
+  if (typeof root !== 'string' || root.length > ROOT_LIMIT || controls.test(root) || root.includes('/')) return false;
+  if (!driveAbsolute.test(root) && !uncPrefix.test(root)) return false;
+  if (path.win32.normalize(root) !== root || (root.endsWith('\\') && root.length !== 3)) return false;
+  return !forbidden.test(root.replace(/^[A-Za-z]:/, '')) && segmentProblem(root) === null;
+}
+
+export function resolveWindowsPath(root, input) {
+  if (!validWindowsRoot(root)) return refuse('ROOT_INVALID');
+  if (typeof input !== 'string' || input.length === 0 || input.length > INPUT_LIMIT || controls.test(input)) {
+    return refuse('PATH_INVALID');
+  }
+  const text = input.replaceAll('/', '\\');
+  if (/^\\\\[?.]\\/.test(text)) return refuse('PATH_DEVICE_NAMESPACE');
+  if (/^[A-Za-z]:(?!\\)/.test(text)) return refuse('PATH_DRIVE_RELATIVE');
+  if (text.startsWith('\\') && !text.startsWith('\\\\')) return refuse('PATH_ROOT_RELATIVE');
+  if (text.startsWith('\\\\') && !uncPrefix.test(text)) return refuse('PATH_INVALID');
+  if (forbidden.test(text.replace(/^[A-Za-z]:/, ''))) return refuse('PATH_INVALID_CHARACTER');
+  const problem = segmentProblem(text);
+  if (problem) return refuse(problem);
+
+  const absolute = driveAbsolute.test(text) || text.startsWith('\\\\');
+  let candidate = path.win32.normalize(absolute ? text : root + '\\' + text);
+  if (candidate.endsWith('\\') && !/^[A-Za-z]:\\$/.test(candidate)) candidate = candidate.replace(/\\+$/, '');
+
+  // Windows compares names case-insensitively by default.
+  const prefix = root.endsWith('\\') ? root : root + '\\';
+  const lower = candidate.toLowerCase();
+  if (lower === root.toLowerCase()) return verdict({ok: true, path: root, relative: ''});
+  if (!lower.startsWith(prefix.toLowerCase())) return refuse('PATH_OUTSIDE_ROOT');
+  const relative = candidate.slice(prefix.length);
+  return verdict({ok: true, path: prefix + relative, relative});
+}

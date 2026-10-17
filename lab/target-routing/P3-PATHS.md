@@ -43,7 +43,7 @@ same fields as the phase 1 target.
 
 | Child | Branch | Targets | Content | Est. | Status |
 |---|---|---|---|---|---|
-| p3a | `target-routing/p3a-windows-paths` | `p3-paths` | Windows rules: separators, case, drives, UNC, device namespaces, reserved names, `..` | ~350 | 🚧 In progress |
+| p3a | `target-routing/p3a-windows-paths` | `p3-paths` | Windows rules: separators, case, drives, UNC, device namespaces, reserved names, `..` | ~350 | ✅ [P3A-WINDOWS-PATHS.md](P3A-WINDOWS-PATHS.md) |
 | p3b | `target-routing/p3b-wsl-paths` | `p3a-windows-paths` | WSL rules, path-space dispatcher, `C:\` ↔ `/mnt/c/` rejection | ~280 | ⏳ Planned |
 | p3c | `target-routing/p3c-executor-checks` | `p3b-wsl-paths` | Documentation of checks only the executor can make on the real filesystem | ~120 | ⏳ Planned |
 
