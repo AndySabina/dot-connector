@@ -1,7 +1,7 @@
 # Phase 4 — Decision log and untrusted output
 
 Phase branch: `target-routing/p4-decision-log` (PR targets
-`target-routing/tracker`). **Status: in progress.** Proposal and reference code
+`target-routing/tracker`). **Status: children complete; awaiting review.** Proposal and reference code
 only; see [PLAN.md](PLAN.md) for the full chain.
 
 ## What this is
@@ -46,7 +46,7 @@ Phase 4 does not import other phases; it reads their output shapes.
 | Child | Branch | Targets | Content | Est. | Status |
 |---|---|---|---|---|---|
 | p4a | `target-routing/p4a-decision-log` | `p4-decision-log` | Log entry schema, field picking, single-line serialization | ~250 | ✅ [P4A-DECISION-LOG.md](P4A-DECISION-LOG.md) |
-| p4b | `target-routing/p4b-untrusted-output` | `p4a-decision-log` | Structured validation and untrusted envelope for result data | ~220 | ⏳ Planned |
+| p4b | `target-routing/p4b-untrusted-output` | `p4a-decision-log` | Structured validation and untrusted envelope for result data | ~220 | ✅ [P4B-UNTRUSTED-OUTPUT.md](P4B-UNTRUSTED-OUTPUT.md) |
 
 ## Not included — pending user decisions
 
