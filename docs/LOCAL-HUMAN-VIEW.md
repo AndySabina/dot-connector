@@ -53,6 +53,14 @@ geometry stays 80×24; window resizing changes only the outer page layout.
 Tests use only fresh synthetic runtime/panes. Browser QA requires an existing
 authorized Playwright installation, supplied through PLAYWRIGHT_MODULE, and
 HUMAN_VIEW_QA_OUTPUT for evidence. Run `node scripts/browser-human-view-qa.mjs`.
+For intermittent failures (#12) it also writes `diagnostics.json` after cleanup,
+whether the run passed or failed. The file holds at most 200 entries with
+millisecond timings: each harness wait (`runtime-ready`, `view-url`, `cli-ready`,
+`marker-dispatched`) with `wait`/`ok`/`expired`, browser steps, runtime event
+names, known CLI markers, stderr lines made only of UPPER_CASE codes, and each
+process exit code or signal. It never stores raw output, pane content, paths,
+URLs or socket names. `failure.json` adds the expired `phase`. Timeouts and the
+absence of retries are unchanged.
 No installation, tunnel activation, real terminal adoption or ConPTY claim is
 part of this increment.
 

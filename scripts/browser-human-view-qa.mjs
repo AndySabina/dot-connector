@@ -25,8 +25,8 @@ try{
  });
  page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('popup',p=>{errors.push('POPUP');void p.close();});
  page.on('response',async r=>{const entry={path:new URL(r.url()).pathname,status:r.status()};responses.push(entry);if(r.status()>=400)entry.body=await r.text().catch(()=>null);});
- await page.goto(fixture.url);await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Observing'),null,{timeout:10000});
- await fixture.marker();await page.waitForFunction(()=>globalThis.qaObserver?.screen()?.lines.join('\n').includes('LIVE_HUMAN_VIEW')||/stopped/.test(document.querySelector('#status').textContent),null,{timeout:10000});assert.match(await page.evaluate(()=>qaObserver.screen()?.lines.join('\n')??''),/LIVE_HUMAN_VIEW/);
+ fixture.step('page-load');await page.goto(fixture.url);await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Observing'),null,{timeout:10000});
+ fixture.step('page-observing');await fixture.marker();fixture.step('marker-rendering');await page.waitForFunction(()=>globalThis.qaObserver?.screen()?.lines.join('\n').includes('LIVE_HUMAN_VIEW')||/stopped/.test(document.querySelector('#status').textContent),null,{timeout:10000});assert.match(await page.evaluate(()=>qaObserver.screen()?.lines.join('\n')??''),/LIVE_HUMAN_VIEW/);
  assert.deepEqual(await page.evaluate(()=>qaObserver.status().identity),fixture.ready.orderedOutput);
  await page.waitForTimeout(2000);assert.match(await page.locator('#status').textContent(),/^Observing/);
  const foreign=await context.newPage();await foreign.goto('https://foreign.invalid/');
@@ -75,8 +75,10 @@ try{
  assert.equal(await page.locator('.xterm').count(),0);results.push('closing the owned source invalidates the live reader and disposes its renderer');
  assert.deepEqual(errors,[]);
  await writeFile(out+'/result.json',JSON.stringify({status:'passed',results,browser:browser.version(),sandbox:true,headless:true,credentials:'none',network:'only the test-owned loopback server',errors},null,2)+'\n');
-}catch(error){await writeFile(out+'/failure.json',JSON.stringify({error:error.message,errors,responses,cliError:fixture?.cli.err(),runtimeError:fixture?.runtimeError(),status:await page?.locator('#status').textContent().catch(()=>null)},null,2));throw error;}finally{
- await context?.close();await browser?.close();const cleanup=await fixture?.close();
+}catch(error){await writeFile(out+'/failure.json',JSON.stringify({error:error.message,phase:error.phase??null,diagnostics:fixture?.diagnostics?.()??null,errors,responses,cliError:fixture?.cli.err(),runtimeError:fixture?.runtimeError(),status:await page?.locator('#status').textContent().catch(()=>null)},null,2));throw error;}finally{
+ await context?.close();await browser?.close();let cleanup;
+ // Written after cleanup, even if it fails, so process exits (close cause) are included; bounded, no raw output.
+ try{cleanup=await fixture?.close();}finally{if(fixture)await writeFile(out+'/diagnostics.json',JSON.stringify(fixture.diagnostics(),null,2)+'\n');}
  await writeFile(out+'/cleanup.json',JSON.stringify({contextClosed:true,browserClosed:true,...cleanup})+'\n');
 }
 console.log(JSON.stringify({status:'passed',results}));
