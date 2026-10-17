@@ -100,7 +100,7 @@ most 400 changed lines each. Full plan, phases and workflow:
 | 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b) | ⏸️ Planned, implementation on hold |
 | 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b) | ⏳ Planned |
 | 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ⏳ Planned |
-| 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ⏳ Planned |
+| 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b): `P4-DECISION-LOG.md` on its branch | 🚧 In progress |
 | 5 | `target-routing/p5-reports` | Results, limits and integration proposal (p5a, p5b) | ⏳ Planned |
 
 ## Base
