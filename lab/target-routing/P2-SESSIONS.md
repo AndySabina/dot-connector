@@ -49,7 +49,7 @@ independently. Joining them belongs to the integration proposal (phase 5).
 
 | Child | Branch | Targets | Content | Est. | Status |
 |---|---|---|---|---|---|
-| p2a | `target-routing/p2a-context-binding` | `p2-sessions` | Session context, request binding, late-result rejection | ~260 | 🚧 In progress |
+| p2a | `target-routing/p2a-context-binding` | `p2-sessions` | Session context, request binding, late-result rejection | ~260 | ✅ [P2A-CONTEXT-BINDING.md](P2A-CONTEXT-BINDING.md) |
 | p2b | `target-routing/p2b-project-switch` | `p2a-context-binding` | Explicit switch: revalidation, pending operations stay uncertain and are not repeated, nothing carried over | ~320 | ⏳ Planned |
 
 ## Limits
