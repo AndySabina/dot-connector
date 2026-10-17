@@ -84,32 +84,24 @@ requires an independent execution boundary, which this layer is not.
 
 Full task list, deferred items and decisions: [SCOPE.md](SCOPE.md).
 
-## Branch model
+## Branch model and plan
 
-This branch (`target-routing/tracker`) is the parent of the feature. Each work
-unit gets a child branch created from it:
-
-```
-main
-└── target-routing/tracker          (this branch)
-    ├── target-routing/<NN>-<topic> (one per work unit)
-    └── ...
-```
-
-- Children start from the current tip of the tracker.
-- Each child documents its purpose, tasks, acceptance checks and results in
-  this folder.
-- Code, tests and documentation of the same behavior stay in the same branch.
-- Each child closes with QA and evidence, then merges back into the tracker.
-  Nothing is merged or integrated upstream.
+Two-level feature branch chain: this tracker (draft PR, never merged upstream),
+one parent branch per phase targeting the tracker, and chained child PRs of at
+most 400 changed lines each. Full plan, phases and workflow:
+[PLAN.md](PLAN.md).
 
 ## Work units
 
-| # | Branch | Purpose | Status |
-|---|--------|---------|--------|
-| — | `target-routing/tracker` | Feature tracker, scope and branch model | 🚧 Proposal, scope approved with adjustments |
-| 01 | `target-routing/01-diagnosis` | Short diagnosis of reusable files and gaps: [01-DIAGNOSIS.md](01-DIAGNOSIS.md) | ✅ Done |
-| 02 | `target-routing/02-registry-resolution` | First pure block: registry validation, single-target resolution and per-project permissions: `02-REGISTRY-RESOLUTION.md` (on its branch) | ⏸️ Planned, implementation on hold |
+| Phase | Branch | Purpose | Status |
+|---|---|---|---|
+| — | `target-routing/tracker` | Feature tracker, scope and plan | 🚧 Proposal, scope approved with adjustments |
+| 0 | (in tracker) | Foundation and short diagnosis: [01-DIAGNOSIS.md](01-DIAGNOSIS.md) | ✅ Done |
+| 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b) | ⏸️ Planned, implementation on hold |
+| 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b) | ⏳ Planned |
+| 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ⏳ Planned |
+| 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ⏳ Planned |
+| 5 | `target-routing/p5-reports` | Results, limits and integration proposal (p5a, p5b) | ⏳ Planned |
 
 ## Base
 
