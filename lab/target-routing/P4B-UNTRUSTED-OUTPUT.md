@@ -35,8 +35,18 @@ clearly labelled, never as something to obey.
   objects.
 - Limits: serialized size at most 65536 bytes (UTF-8); nesting depth at most 8.
 - Forbidden keys at any level: `__proto__`, `constructor`, `prototype`.
-- The content is never changed, filtered or interpreted. The envelope holds a
-  deeply frozen copy, so later changes to the input do not affect it.
+- **One canonical snapshot.** The input is read once, from own data
+  descriptors only, into a plain copy. That same copy is validated, measured
+  and frozen, so nothing the size check did not see can reach the envelope.
+- Arrays must hold exactly their indices plus `length`: holes and extra own
+  properties are rejected. Accessors (getters and setters) are rejected
+  without being run; non-enumerable and symbol keys are rejected; proxies whose
+  traps throw are rejected without rethrowing.
+- Work is bounded before measuring: every value costs at least one serialized
+  byte, so arrays longer than, objects with more keys than, or structures with
+  more values than 65536 are rejected as too large before reading elements.
+- The content is never changed, filtered or interpreted. Later changes to the
+  input do not affect the envelope.
 - Verdicts: `{ok: true}` or `{ok: false, reason}`; `wrapUntrusted` returns
   `{ok: true, envelope}` with
   `envelope = {trust: "untrusted", warning, data}`.
@@ -59,6 +69,11 @@ clearly labelled, never as something to obey.
   class instances are rejected.
 - Forbidden keys are rejected at any depth, including an own `__proto__` key
   produced by `JSON.parse`.
+- Review regressions: arrays with extra properties (oversized or named
+  `constructor`), getters on objects and array elements (never run, never
+  throwing), non-enumerable and symbol keys, throwing proxies, and a proxy that
+  returns a different value on a second read (only one read happens).
+- Huge arrays and objects are rejected without reading their elements.
 
 ## Limits
 
@@ -78,6 +93,12 @@ Node 22.23.3, local, fictional data only.
   the serialized JSON, so 65534 characters (65536 bytes with quotes) is the
   largest accepted ASCII string.
 - GREEN: `node --test lab/target-routing/untrusted.test.mjs` — 5 tests, 5 pass.
+- Review fix (dot, PR #14): the 5 regressions above failed against the first
+  version (RED), then passed with the canonical snapshot. While fixing, a
+  quadratic index lookup was found running before the size check (40000
+  elements: 5945 ms); a deterministic test counting element reads failed (70001
+  reads), and the bounded version passes (40000 elements: 47 ms, 1000000: 0 ms).
+  Now 11 tests, 11 pass.
 - Lab tests on this branch — 28 tests, 28 pass.
 - `npm run build` exit 0; `npm run check:release` exit 0.
 - Not distributed: `dist/build-manifest.json` has no `target-routing` entry and
