@@ -109,6 +109,7 @@ main
 |---|--------|---------|--------|
 | — | `target-routing/tracker` | Feature tracker, scope and branch model | 🚧 Proposal, scope approved with adjustments |
 | 01 | `target-routing/01-diagnosis` | Short diagnosis of reusable files and gaps: [01-DIAGNOSIS.md](01-DIAGNOSIS.md) | ✅ Done |
+| 02 | `target-routing/02-registry-resolution` | First pure block: registry validation, single-target resolution and per-project permissions: `02-REGISTRY-RESOLUTION.md` (on its branch) | ⏸️ Planned, implementation on hold |
 
 ## Base
 
