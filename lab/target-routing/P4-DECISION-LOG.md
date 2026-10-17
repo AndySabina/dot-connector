@@ -45,7 +45,7 @@ Phase 4 does not import other phases; it reads their output shapes.
 
 | Child | Branch | Targets | Content | Est. | Status |
 |---|---|---|---|---|---|
-| p4a | `target-routing/p4a-decision-log` | `p4-decision-log` | Log entry schema, field picking, single-line serialization | ~250 | 🚧 In progress |
+| p4a | `target-routing/p4a-decision-log` | `p4-decision-log` | Log entry schema, field picking, single-line serialization | ~250 | ✅ [P4A-DECISION-LOG.md](P4A-DECISION-LOG.md) |
 | p4b | `target-routing/p4b-untrusted-output` | `p4a-decision-log` | Structured validation and untrusted envelope for result data | ~220 | ⏳ Planned |
 
 ## Not included — pending user decisions
