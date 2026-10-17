@@ -56,7 +56,7 @@ test('matching project names and roots on two machines resolve only by machine i
 test('missing grant and denied operation are both refused', () => {
   const registry = validateRegistry(document());
   const stranger = resolveTarget(registry, {principalId: 'u-other', tunnelStatus: up}, request({machineId: 'm-alpha', projectId: 'p-blog'}));
-  assert.equal(stranger.reason, 'PERMISSION_MISSING');
+  assert.equal(stranger.reason, 'TARGET_UNKNOWN');
   const denied = resolveTarget(registry, context(), request({machineId: 'm-alpha', projectId: 'p-shop', operation: 'write'}));
   assert.equal(denied.reason, 'PERMISSION_DENIED');
 });
@@ -75,8 +75,83 @@ test('inconsistent machine or tunnel identity is refused', () => {
   const registry = validateRegistry(document());
   const wrongTunnel = resolveTarget(registry, context(), request({machineId: 'm-alpha', projectId: 'p-blog', tunnelId: 't-beta'}));
   assert.equal(wrongTunnel.reason, 'TARGET_INCONSISTENT');
+  // The principal cannot see p-blog on m-beta, so the machine is not confirmed as inconsistent.
   const wrongMachine = resolveTarget(registry, context(), request({machineId: 'm-beta', projectId: 'p-blog'}));
-  assert.equal(wrongMachine.reason, 'TARGET_INCONSISTENT');
+  assert.equal(wrongMachine.reason, 'TARGET_UNKNOWN');
+});
+
+test('an ungranted principal cannot map projects, machines, tunnels or the version', () => {
+  const registry = validateRegistry(document());
+  const stranger = {principalId: 'u-other', tunnelStatus: up};
+  const probes = [
+    request({machineId: 'm-alpha', projectId: 'p-blog'}),
+    request({projectId: 'p-blog'}),
+    request({projectId: 'p-shop'}),
+    request({machineId: 'm-beta', projectId: 'p-blog'}),
+    request({machineId: 'm-alpha', projectId: 'p-blog', tunnelId: 't-beta'}),
+    request({machineId: 'm-alpha', projectId: 'p-blog', configVersion: 2}),
+    request({projectId: 'p-shop', configVersion: 99}),
+    request({machineId: 'm-alpha', projectId: 'p-none'})
+  ];
+  for (const probe of probes) {
+    assert.deepEqual({...resolveTarget(registry, stranger, probe)}, {decision: 'deny', reason: 'TARGET_UNKNOWN', operation: 'observe'});
+  }
+});
+
+test('a grant with no allowed operation behaves as no grant', () => {
+  const doc = document();
+  doc.projects[1].grants.push({principalId: 'u-idle', observe: false, write: false, execute: false});
+  const registry = validateRegistry(doc);
+  const idle = {principalId: 'u-idle', tunnelStatus: up};
+  for (const fields of [{machineId: 'm-alpha', projectId: 'p-blog'}, {projectId: 'p-blog', operation: 'execute'},
+    {machineId: 'm-alpha', projectId: 'p-blog', tunnelId: 't-beta'}, {machineId: 'm-alpha', projectId: 'p-blog', configVersion: 2}]) {
+    assert.equal(resolveTarget(registry, idle, request(fields)).reason, 'TARGET_UNKNOWN');
+  }
+});
+
+test('ambiguity is reported even when only one of the matching projects is visible', () => {
+  const doc = document();
+  doc.projects[0].grants.push({principalId: 'u-alpha', ...allowAll});
+  const registry = validateRegistry(doc);
+  const alphaOnly = {principalId: 'u-alpha', tunnelStatus: up};
+  assert.equal(resolveTarget(registry, alphaOnly, request({projectId: 'p-shop'})).reason, 'TARGET_AMBIGUOUS');
+  assert.equal(resolveTarget(registry, alphaOnly, request({machineId: 'm-beta', projectId: 'p-shop'})).reason, 'TARGET_UNKNOWN');
+  assert.equal(resolveTarget(registry, alphaOnly, request({machineId: 'm-alpha', projectId: 'p-shop'})).decision, 'allow');
+});
+
+test('hostile requests and contexts are denied without throwing', () => {
+  const registry = validateRegistry(document());
+  const valid = () => request({machineId: 'm-alpha', projectId: 'p-blog'});
+  const throwingGetter = valid();
+  Object.defineProperty(throwingGetter, 'operation', {enumerable: true, get() { throw Error('boom'); }});
+  const accessor = valid();
+  Object.defineProperty(accessor, 'projectId', {enumerable: true, get: () => 'p-blog'});
+  const hidden = valid();
+  Object.defineProperty(hidden, 'tunnelId', {enumerable: false, value: 't-alpha'});
+  const symbol = {...valid(), [Symbol('extra')]: 1};
+  const foreign = Object.assign(Object.create({inherited: true}), valid());
+  const throwingKeys = new Proxy(valid(), {ownKeys() { throw Error('boom'); }});
+  const throwingDescriptor = new Proxy(valid(), {getOwnPropertyDescriptor() { throw Error('boom'); }});
+  const {proxy: revoked, revoke} = Proxy.revocable(valid(), {});
+  revoke();
+  for (const hostile of [throwingGetter, accessor, hidden, symbol, foreign, throwingKeys, throwingDescriptor, revoked]) {
+    const decision = resolveTarget(registry, context(), hostile);
+    assert.deepEqual({...decision}, {decision: 'deny', reason: 'REQUEST_INVALID', operation: null});
+    assert.ok(Object.isFrozen(decision));
+  }
+
+  const throwingContext = new Proxy(context(), {ownKeys() { throw Error('boom'); }});
+  const throwingProto = new Proxy(context(), {getPrototypeOf() { throw Error('boom'); }});
+  const accessorContext = context();
+  Object.defineProperty(accessorContext, 'principalId', {enumerable: true, get: () => 'u-dot'});
+  const throwingStatus = context(new Proxy({...up}, {getOwnPropertyDescriptor() { throw Error('boom'); }}));
+  const accessorStatus = {...up};
+  Object.defineProperty(accessorStatus, 't-alpha', {enumerable: true, get: () => 'up'});
+  for (const hostile of [throwingContext, throwingProto, accessorContext, throwingStatus, context(accessorStatus)]) {
+    const decision = resolveTarget(registry, hostile, valid());
+    assert.deepEqual({...decision}, {decision: 'deny', reason: 'REQUESTER_UNVERIFIED', operation: 'observe'});
+    assert.ok(Object.isFrozen(decision));
+  }
 });
 
 test('a stale configuration version is refused', () => {

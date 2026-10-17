@@ -78,21 +78,29 @@ request field such as `principalId` is rejected.
 - deny: `{decision: "deny", reason, operation}`.
 
 **Order of checks**: registry produced by `validateRegistry`, request
-structure, trusted requester, configuration version, target lookup, identity
-consistency, permission, tunnel status.
+structure, trusted requester, target lookup among the projects visible to the
+principal, identity consistency, configuration version, permission, tunnel
+status. A project is visible to a principal when it has a grant for that
+principal with at least one of `observe`, `write` or `execute` set to `true`.
+A missing grant is reported as `TARGET_UNKNOWN`, so an unauthorized principal
+cannot map projects, machines, tunnels or the configuration version.
+
+The request and the context are read once into plain snapshots (own,
+enumerable, string-keyed data properties of a plain object). Accessors, symbol
+keys, other prototypes and throwing proxy traps are refused, and
+`resolveTarget` never throws.
 
 **Reason codes**
 
 | Code | When |
 |---|---|
 | `REGISTRY_UNVERIFIED` | The registry did not come from `validateRegistry` |
-| `REQUEST_INVALID` | Unknown or missing fields, unknown operation, or a requester field in the request |
-| `REQUESTER_UNVERIFIED` | No principal in the trusted context |
+| `REQUEST_INVALID` | Unknown or missing fields, unknown operation, a requester field in the request, or a request that is not a plain data object |
+| `REQUESTER_UNVERIFIED` | No principal in the trusted context, or a context that is not a plain data object |
+| `TARGET_UNKNOWN` | No visible project matches (this includes a missing grant and a machine where no visible project exists) |
+| `TARGET_AMBIGUOUS` | More than one project in the registry has the name, no machine was given, and at least one is visible |
+| `TARGET_INCONSISTENT` | Tunnel in the request does not belong to the resolved visible project |
 | `CONFIG_STALE` | Request version differs from the registry version |
-| `TARGET_UNKNOWN` | No project matches |
-| `TARGET_AMBIGUOUS` | More than one project matches |
-| `TARGET_INCONSISTENT` | Machine or tunnel in the request does not belong to the project |
-| `PERMISSION_MISSING` | No grant for this principal in this project |
 | `PERMISSION_DENIED` | The grant does not include the operation |
 | `TUNNEL_UNAVAILABLE` | The project's tunnel is not reported as up |
 
@@ -106,6 +114,7 @@ Registry validation fails with `REGISTRY_INVALID`, `REGISTRY_DUPLICATE_ID`,
 |---|---|---|---|---|---|
 | p1a | `target-routing/p1a-registry-model` | `p1-registry` | `validateRegistry`, registry reason codes, registry acceptance checks | ~280 | ✅ [P1A-REGISTRY-MODEL.md](P1A-REGISTRY-MODEL.md) |
 | p1b | `target-routing/p1b-target-resolution` | `p1a-registry-model` | `resolveTarget`, decision shape, resolution reason codes and acceptance checks | ~330 | ✅ [P1B-TARGET-RESOLUTION.md](P1B-TARGET-RESOLUTION.md) |
+| p1c | `target-routing/p1c-resolver-hardening` | `p1b-target-resolution` | Judgment Day round 2: overlapping and invalid registry roots, hostile request and context snapshots, no disclosure to ungranted principals (see the Review round 2 sections of P1A and P1B) | ~375 | ✅ |
 
 Each child follows the workflow in [PLAN.md](PLAN.md): document, tests first
 with fictional data (`lab/target-routing/*.test.mjs`), pure implementation with
@@ -117,10 +126,16 @@ results recorded here.
 - Two projects on the same tunnel keep their own permissions.
 - Matching project names and roots on two machines resolve only by machine
   identity; without it the request is ambiguous.
-- Missing and denied permissions are refused.
+- A missing grant, or a grant with no allowed operation, is reported as
+  `TARGET_UNKNOWN` for every probe (unique or ambiguous name, wrong machine,
+  wrong tunnel, stale version); a denied operation is `PERMISSION_DENIED`.
 - Unknown targets and operations are refused.
-- Inconsistent machine or tunnel identity is refused.
-- A stale configuration version is refused.
+- A tunnel that does not belong to the resolved project is refused; a machine
+  where no visible project exists is `TARGET_UNKNOWN`.
+- A stale configuration version is refused, but only after the target is
+  visible to the principal.
+- Hostile requests or contexts (throwing getters, accessors, throwing proxy
+  traps) return frozen deny decisions without throwing.
 - A down or unreported tunnel returns `TUNNEL_UNAVAILABLE` with no fallback.
 - A requester claimed inside the request is refused; a missing trusted
   principal is refused.
