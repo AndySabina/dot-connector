@@ -29,13 +29,13 @@ test('escapes from the root are rejected', () => {
   assert.deepEqual(resolveWindowsPath(root, '..\\..'), {ok: false, reason: 'PATH_OUTSIDE_ROOT'});
 });
 
-test('UNC roots accept only their own share', () => {
-  assert.deepEqual(resolveWindowsPath(unc, '\\\\FILES\\Team\\shop\\a.md'),
-    {ok: true, path: '\\\\files\\team\\shop\\a.md', relative: 'a.md'});
-  assert.deepEqual(resolveWindowsPath(unc, 'a.md'), {ok: true, path: '\\\\files\\team\\shop\\a.md', relative: 'a.md'});
-  assert.equal(reason(unc, '\\\\files\\other\\shop\\a.md'), 'PATH_OUTSIDE_ROOT');
-  assert.equal(reason(unc, '..\\..\\other'), 'PATH_OUTSIDE_ROOT');
-  assert.equal(reason(unc, 'C:\\work\\shop'), 'PATH_OUTSIDE_ROOT');
+test('UNC shares are never project roots, and UNC input stays outside a drive root', () => {
+  // A share lives on another machine than the project declares; the registry rejects it too.
+  for (const input of ['a.md', '\\\\files\\team\\shop\\a.md']) {
+    assert.deepEqual(resolveWindowsPath(unc, input), {ok: false, reason: 'ROOT_INVALID'});
+  }
+  assert.equal(reason(root, '\\\\files\\team\\shop\\a.md'), 'PATH_OUTSIDE_ROOT');
+  assert.equal(reason(root, '//files/team/shop'), 'PATH_OUTSIDE_ROOT');
 });
 
 test('forms that depend on hidden state or devices are rejected', () => {

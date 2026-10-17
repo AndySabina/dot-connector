@@ -25,7 +25,8 @@ function segmentProblem(text) {
 
 function validWindowsRoot(root) {
   if (typeof root !== 'string' || root.length > ROOT_LIMIT || controls.test(root) || root.includes('/')) return false;
-  if (!driveAbsolute.test(root) && !uncPrefix.test(root)) return false;
+  // Drive roots only: a UNC share lives on another machine than the project declares.
+  if (!driveAbsolute.test(root)) return false;
   if (path.win32.normalize(root) !== root || (root.endsWith('\\') && root.length !== 3)) return false;
   return !forbidden.test(root.replace(/^[A-Za-z]:/, '')) && segmentProblem(root) === null;
 }
