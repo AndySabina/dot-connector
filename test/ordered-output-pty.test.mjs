@@ -95,14 +95,28 @@ test('PTY burst exceeds journal while fast reader drains and slow reader gets a 
  const expected=createHash('sha256');for(let i=0;i<repetitions;i++)expected.update(payload);assert.equal(hash.digest('hex'),expected.digest('hex'));assert.equal(total,1048576);
  const late=new OrderedOutputReceiver(f.identity);assert.equal(late.accept(slow.read(late.cursor())).state,'gap');assert.equal(late.accept(slow.read(late.resync())).state,'gap');journal.close();
 });
-// Fault injection only widens the real window: the helper announces when its
-// cleanup starts ignoring SIGTERM and pauses there, so the signal lands inside it.
+// Fault injection with a bounded handshake, no fixed sleep: the helper's own
+// SIGTERM handler is wrapped to record the phase it ran in, and the cleanup
+// waits (at most 5 s) right before installing SIG_IGN until that handler ran.
+// If the signal never arrives, CLEANUP_WINDOW_EXPIRED makes the test fail.
 const cleanupWindow=String.raw`
 import signal as _signal,os as _os,time as _time
 _install=_signal.signal
+_state={'phase':'run','handled':None}
 def _window(signum,handler):
-    if handler is _signal.SIG_IGN:
-        _os.write(2,b'CLEANUP_WINDOW\n');_time.sleep(0.5)
+    if signum==_signal.SIGTERM and callable(handler):
+        def _traced(s,f):
+            _state['handled']=_state['phase']
+            _os.write(2,('SIGTERM_HANDLED_IN_'+_state['phase'].upper()+'\n').encode())
+            return handler(s,f)
+        return _install(signum,_traced)
+    if signum==_signal.SIGTERM and handler is _signal.SIG_IGN and _state['phase']=='run':
+        _state['phase']='cleanup'
+        _os.write(2,b'CLEANUP_WINDOW\n')
+        for _ in range(500):
+            if _state['handled']:break
+            _time.sleep(0.01)
+        else:_os.write(2,b'CLEANUP_WINDOW_EXPIRED\n')
     return _install(signum,handler)
 _signal.signal=_window
 `;
@@ -113,6 +127,8 @@ test('SIGTERM landing during cleanup after a broken pipe still reports cleanup a
  await window;f.child.kill('SIGTERM');
  const {code,signal}=await f.closed;
  assert.equal(signal,null);assert.equal(code,0,stderr);assert.ok(!stderr.includes('Traceback'),stderr);
+ assert.ok(!stderr.includes('CLEANUP_WINDOW_EXPIRED'),stderr);
+ assert.deepEqual(stderr.match(/SIGTERM_HANDLED_IN_[A-Z]+/g),['SIGTERM_HANDLED_IN_CLEANUP'],stderr);
  const evidence=JSON.parse(stderr.trim().split('\n').at(-1));
  assert.equal(evidence.reason,'cancelled');assert.equal(evidence.childReaped,true);assert.equal(evidence.masterClosed,true);
 });
