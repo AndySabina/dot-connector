@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 // QA-only diagnostics (#12): phases, millisecond timings and close causes.
 // Raw output is never kept: only event names, known markers and UPPER_CASE codes.
 const DIAGNOSTIC_LIMIT=200;
+// Only the runtime's own stderr announces lifecycle events, and only these names.
+const RUNTIME_EVENTS=new Set(['ready','closed']);
 const MARKERS=[['Read-only browser view: ','view-url'],['Local cooperative human.','cli-ready'],['"status":"dispatched"','dispatched']];
 export function createDiagnostics(){
  const started=performance.now(),entries=[],partial=new Map();let dropped=0;
@@ -14,7 +16,12 @@ export function createDiagnostics(){
  // Codes come only from stderr lines made entirely of UPPER_CASE codes; stdout
  // can echo synthetic pane content, so it contributes events and markers only.
  const line=(source,stream,text)=>{
-  try{const event=JSON.parse(text)?.event;if(typeof event==='string'&&/^[a-z][a-z_-]{0,31}$/.test(event))return record({source,kind:'event',name:event});}catch{}
+  // JSON-shaped lines elsewhere (e.g. pane content echoed by the CLI) are dropped, never recorded.
+  let parsed;try{parsed=JSON.parse(text);}catch{}
+  if(parsed&&typeof parsed==='object'&&'event' in parsed){
+   if(source==='runtime'&&stream==='stderr'&&RUNTIME_EVENTS.has(parsed.event))record({source,kind:'event',name:parsed.event});
+   return;
+  }
   const marker=MARKERS.find(([needle])=>text.includes(needle));if(marker)return record({source,kind:'marker',name:marker[1]});
   const codes=text.trim().split(/\s+/);
   if(stream==='stderr'&&codes.length<=8&&codes.every(code=>code.length<=64&&/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(code)))record({source,kind:'codes',codes});

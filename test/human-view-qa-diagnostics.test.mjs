@@ -40,6 +40,22 @@ test('output is reduced to event names, known markers and error codes without ra
  ]);
 });
 
+test('events are recorded only by known name from runtime stderr; JSON-shaped pane text is dropped',()=>{
+ const diagnostics=createDiagnostics();
+ diagnostics.output('runtime','stderr','{"event":"ready"}\n{"event":"closed"}\n{"event":"synthforged"}\n');
+ diagnostics.output('runtime','stdout','{"event":"ready"}\n');
+ // The CLI echoes pane content on stdout, so JSON there must never become an event or a code.
+ diagnostics.output('cli','stdout','{"event":"ready"}\n{"event":"closed","note":"SYNTH_ECHO"}\n');
+ diagnostics.output('cli','stderr','{"event":"ready"}\n');
+ const snapshot=diagnostics.snapshot();
+ assert.deepEqual(snapshot.entries.map(({ms,...e})=>e),[
+  {source:'runtime',kind:'event',name:'ready'},
+  {source:'runtime',kind:'event',name:'closed'}
+ ]);
+ assert.ok(!JSON.stringify(snapshot).includes('synthforged'));
+ assert.ok(!JSON.stringify(snapshot).includes('SYNTH_ECHO'));
+});
+
 test('diagnostics stay bounded and count what they drop',()=>{
  const diagnostics=createDiagnostics();
  for(let i=0;i<500;i++)diagnostics.step('repeat');
