@@ -112,3 +112,9 @@ PTY tests validate the actual line editor and protocol at narrow dimensions, not
 pixel rendering, font behavior, accessibility or Windows ConPTY. Review text can
 exceed a short terminal's height and remains in its scrollback; no pager is created.
 No assertion establishes OS isolation, anonymity or permission enforcement.
+
+## Operations on existing profile drafts
+
+Use [profile plan operations](PROFILE-PLANS.md) to list or duplicate profiles from
+a validated plan. This JSON CLI does not modify runtime configuration or extend
+the interactive wizard with editing of saved plans.
