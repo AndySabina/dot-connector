@@ -1,7 +1,7 @@
 # Phase 1 — Registry and resolution
 
 Phase branch: `target-routing/p1-registry` (PR targets
-`target-routing/tracker`). **Status: planned, implementation on hold.**
+`target-routing/tracker`). **Status: children complete; awaiting review.**
 This document is a proposal; no code in this phase is implemented yet. See
 [PLAN.md](PLAN.md) for the full chain.
 
