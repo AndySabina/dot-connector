@@ -1,7 +1,7 @@
 # Phase 1 — Registry and resolution
 
 Phase branch: `target-routing/p1-registry` (PR targets
-`target-routing/tracker`). **Status: planned, implementation on hold.**
+`target-routing/tracker`). **Status: children complete; awaiting review.**
 This document is a proposal; no code in this phase is implemented yet. See
 [PLAN.md](PLAN.md) for the full chain.
 
@@ -105,7 +105,7 @@ Registry validation fails with `REGISTRY_INVALID`, `REGISTRY_DUPLICATE_ID`,
 | Child | Branch | Targets | Content | Est. | Status |
 |---|---|---|---|---|---|
 | p1a | `target-routing/p1a-registry-model` | `p1-registry` | `validateRegistry`, registry reason codes, registry acceptance checks | ~280 | ✅ [P1A-REGISTRY-MODEL.md](P1A-REGISTRY-MODEL.md) |
-| p1b | `target-routing/p1b-target-resolution` | `p1a-registry-model` | `resolveTarget`, decision shape, resolution reason codes and acceptance checks | ~330 | ⏳ Planned |
+| p1b | `target-routing/p1b-target-resolution` | `p1a-registry-model` | `resolveTarget`, decision shape, resolution reason codes and acceptance checks | ~330 | ✅ [P1B-TARGET-RESOLUTION.md](P1B-TARGET-RESOLUTION.md) |
 
 Each child follows the workflow in [PLAN.md](PLAN.md): document, tests first
 with fictional data (`lab/target-routing/*.test.mjs`), pure implementation with
