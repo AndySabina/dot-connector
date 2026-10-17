@@ -21,6 +21,7 @@ limits plainly and lists what the executor and plugin must do.
 |---|---|---|---|---|---|
 | p5a | `target-routing/p5a-results-limits` | `p5-reports` | Results per child, requirement-to-test map, combined run, limits | ~200 | ✅ [P5A-RESULTS-LIMITS.md](P5A-RESULTS-LIMITS.md) |
 | p5b | `target-routing/p5b-integration` | `p5a-results-limits` | Integration proposal and requirements for executor and plugin | ~200 | ✅ [P5B-INTEGRATION.md](P5B-INTEGRATION.md) |
+| p5c | `target-routing/p5c-composition` | `integration-preview` | Committed composition tests across all phases (review fix) | ~200 | ✅ [P5C-COMPOSITION.md](P5C-COMPOSITION.md) |
 
 ## Limits
 
