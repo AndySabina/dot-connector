@@ -38,6 +38,8 @@ export function createSessionContext(target, session) {
   return context;
 }
 
+export const isSessionContext = value => created.has(value);
+
 const bindingOf = context => Object.freeze(Object.fromEntries(BINDING.map(k => [k, context[k]])));
 
 export function bindRequest(context, operationId) {
