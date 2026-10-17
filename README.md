@@ -9,7 +9,8 @@ GentleShell JSONL RPC is not a shared terminal or proof of adopting its tabs.
 
 ## Install an isolated runtime
 
-Requirements: existing Linux/WSL, Node 22, npm, git, and tmux for synthetic tests.
+Requirements: existing Linux/WSL, Node 22.x (required; other majors are refused),
+npm, git, and tmux for synthetic tests.
 No Windows helper, profile, firewall, service or permission changes are needed.
 The installer downloads public GitHub release assets and locked npm dependencies
 with lifecycle scripts disabled. It never asks for a ChatGPT key.
@@ -121,6 +122,7 @@ ignored as defense in depth. Never force-add local data or include it in release
 Development checkout checks:
 
 ```sh
+node scripts/check-node.mjs
 npm ci --ignore-scripts --no-audit --no-fund
 npm run build
 DOT_TMUX_LAB_TEST=1 node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs

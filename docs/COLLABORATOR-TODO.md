@@ -7,6 +7,9 @@ Use only synthetic fixtures. Preserve UNLICENSED and the installed runtime state
 ## Baseline checks
 
 - [ ] Record commit, OS/WSL version, Node/npm/Python/tmux versions.
+- [ ] Run `node scripts/check-node.mjs`. It must print `"ok":true`; Node 22.x is
+  required. On another major it exits 1 with `NODE_22_REQUIRED`: switch this
+  shell to an existing Node 22 runtime before continuing.
 - [ ] Complete the locked dependency install from CONTRIBUTING.md.
 - [ ] Run this block from the repository root in a fresh shell:
 
@@ -20,6 +23,7 @@ mkdir "$QA_ROOT/home" "$QA_ROOT/tmp" "$QA_ROOT/cache" "$QA_ROOT/evidence"
   export NODE_DISABLE_COMPILE_CACHE=1 DOT_TMUX_LAB_TEST=1
   export DOT_RUNTIME_OUTPUT_TRACE="$QA_ROOT/evidence/runtime-trace.json"
   unset TMUX NODE_OPTIONS
+  node scripts/check-node.mjs || exit 1
   node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs >"$QA_ROOT/evidence/tests.log" 2>&1
   TEST_RESULT=$?
   npm run build >"$QA_ROOT/evidence/build.log" 2>&1
@@ -34,7 +38,7 @@ find "$QA_ROOT/tmp" -mindepth 1 -maxdepth 1 -print
 tail -12 "$QA_ROOT/evidence/tests.log"
 ```
 
-- [ ] Expected baseline: 251 tests, 250 pass, zero failures, one intentional skip;
+- [ ] Expected baseline: 254 tests, 253 pass, zero failures, one intentional skip;
   build/package exit zero; no remaining fixtures in the isolated tmp directory.
   Investigate any changed count or skip reason rather than treating it as a pass.
 - [ ] Inspect the package inventory: no internal proposals/reviews, credentials,
