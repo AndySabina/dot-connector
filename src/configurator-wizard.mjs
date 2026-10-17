@@ -18,18 +18,20 @@ function folderGuide(machineId, platform, declared) {
   const sample = candidates.find(candidate => fits(candidate, declared)) ?? candidates.at(-1);
   const name = platform === 'windows' ? 'Windows' : 'Linux';
   let duplicate = false;
-  return {
-    classify(path) { duplicate = fits(path, []) && !fits(path, declared); },
-    hint: () => duplicate
-      ? `That folder is already declared in this draft. Use a different normalized absolute ${name} path, for example ${sample}. The folder is not inspected.`
-      : `Use a normalized absolute ${name} path, for example ${sample}; no .. segments. The folder is not inspected.`
-  };
+  const hint = () => duplicate
+    ? `That folder is already declared in this draft. Use a different normalized absolute ${name} path, for example ${sample}. The folder is not inspected.`
+    : `Use a normalized absolute ${name} path, for example ${sample}; no .. segments. The folder is not inspected.`;
+  // question() resets before every attempt, so an answer rejected before
+  // classification (control or bidi characters) never inherits a stale result.
+  hint.reset = () => { duplicate = false; };
+  return {classify(path) { duplicate = fits(path, []) && !fits(path, declared); }, hint};
 }
 
 export async function runWizard({ask,write,plan:existingPlan}) {
   if(existingPlan !== undefined)validatePlan(existingPlan);
   const question=async (prompt,valid,hint="Choose one of the options shown in this prompt.")=>{
     for(let attempt=0;attempt<3;attempt++){
+      hint.reset?.();
       const raw=await ask(prompt+' (:cancel to cancel): ');
       if(raw===null||raw===undefined||(typeof raw==='string'&&raw.trim()===':cancel'))throw Error('CONFIGURATOR_CANCELLED');
       if(typeof raw!=='string'||Buffer.byteLength(raw)>1024)throw Error('CONFIGURATOR_INPUT_LIMIT');

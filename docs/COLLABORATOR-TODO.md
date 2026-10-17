@@ -10,7 +10,7 @@ Use only synthetic fixtures. Preserve UNLICENSED and the installed runtime state
 - [ ] Complete the locked dependency install from CONTRIBUTING.md.
 - [ ] Run this block from the repository root in a fresh Bash shell. From fish or
   zsh, start `bash` first (or save the block to a file and run `bash file.sh`);
-  do not change your default shell.
+  do not change your default shell, and do not paste Bash-only lines into fish.
 - [ ] Run this block:
 
 ```sh
@@ -40,7 +40,7 @@ tail -12 "$QA_ROOT/evidence/tests.log"
 - [ ] Expected counts depend on the branch; compare only with the matching row:
   - Baseline `review/ordered-output-collaborator-onboarding` (8e8440f): 251 tests,
     250 pass, zero failures, one intentional skip.
-  - Integrated review `review/integrated-setup-preview`: 328 tests, 327 pass, zero
+  - Integrated review `review/integrated-setup-preview`: 329 tests, 328 pass, zero
     failures, one intentional skip (321/320 at 02a9088, before the configurator
     usability tests).
   In both, the skip is the Windows identity helper; build/package exit zero; no
@@ -70,8 +70,9 @@ node scripts/browser-observer-qa.mjs
 - [ ] Expect seven passed groups, result.json status passed, sandbox true, and
   cleanup.json confirming context/browser closure. Without a trace there are six
   groups; that does not verify runtime-frame replay. Do not use --no-sandbox.
-- [ ] Integrated review only: also run the local human view QA, which starts its
-  own synthetic runtime and needs no trace:
+- [ ] Integrated review only: also run the local human view QA. Unlike the observer
+  QA above, which creates no runtime and replays fixtures and the recorded trace in
+  memory, it starts its own synthetic runtime and needs no trace:
 
 ```sh
 PLAYWRIGHT_BROWSERS_PATH="$QA_TOOLS/browsers" \

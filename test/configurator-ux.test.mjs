@@ -42,6 +42,19 @@ test('S2 duplicate folder and invalid format get distinct hints with a non-colli
  }
 });
 
+test('S2 folder classification resets on every attempt, including control/bidi rejections',async()=>{
+ const bidi='/projects/\u202Eelpmaxe';
+ const prefix=['local','one','1','linux','/projects/example','1','yes','two','1','linux'],suffix=['/projects/two','1','no','EXPORT'];
+ const created=await run([...prefix,'/projects/example',bidi,...suffix]);
+ const edited=await run(['duplicate','src','copy','linux','/projects/example',bidi,'/projects/copy','export','EXPORT'],draft());
+ for(const {result,shown} of [created,edited]){
+  assert.equal(result.intent.profiles.length,2);
+  const [duplicate,control]=hints(shown);
+  assert.match(duplicate,/already declared/);assert.doesNotMatch(control,/already declared/);assert.match(control,/^Invalid answer\. Use a normalized absolute Linux path/);
+  assert.ok(shown.every(s=>!s.includes('\u202E')&&!s.includes('elpmaxe')),'input must not be echoed');
+ }
+});
+
 test('S2 duplicate flow names a repeated folder and suggests a Windows example that does not collide',async()=>{
  const win='C:\\Projects\\Example';
  const plan=createPlan({schemaVersion:1,machineId:'local',profiles:[{profileId:'src',mode:'Personal',folder:{platform:'windows',path:win},destination:{kind:'local',id:'local-preview'},permissions:{}}]});

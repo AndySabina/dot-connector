@@ -37,7 +37,7 @@ Estos bloques usan sintaxis Bash. Si tu shell es fish (o zsh u otra), ejecútalo
 bash -c 'set -o noclobber; node scripts/configure.mjs wizard > draft.json'
 ```
 
-En fish, `set -o noclobber` falla con `set: -o: unknown option` y no guarda nada.
+En fish, `set -o noclobber` falla con `set: -o: unknown option` y no activa ninguna protección. Si ves ese error, no continúes con la redirección suelta (`node scripts/configure.mjs wizard > draft.json`): fish la ejecutaría como otro comando sin `noclobber` y podría sobrescribir un archivo existente. Usa siempre el envoltorio `bash -c` de arriba, que activa `noclobber` y redirige dentro del mismo proceso Bash.
 
 Comprueba que el comando termina correctamente. Si cancelas o falla, el archivo puede contener un objeto de error, no un plan: consérvalo para diagnosticar o elige un nombre nuevo para repetir. No lo uses como configuración activa. Si lo validas o revisas por error, el configurador responde `CONFIGURATOR_CANCELLED_RESULT` (cancelado) o `CONFIGURATOR_FAILED_RESULT` (otro error) en lugar de un error de esquema.
 
@@ -90,9 +90,9 @@ Para repetir las pruebas Linux, con Python 3 y tmux ya disponibles, usa el bloqu
 | Referencia | Rama | Pruebas | QA Chromium |
 |---|---|---|---|
 | Baseline | `review/ordered-output-collaborator-onboarding` (8e8440f) | 251: 250 aprobadas, 0 fallos, 1 omitida | `browser-observer-qa.mjs`: 7 grupos |
-| Revisión integrada | `review/integrated-setup-preview` | 328: 327 aprobadas, 0 fallos, 1 omitida (321/320 en 02a9088, antes de las pruebas de usabilidad del configurador) | `browser-observer-qa.mjs`: 7 grupos y `browser-human-view-qa.mjs`: 11 grupos |
+| Revisión integrada | `review/integrated-setup-preview` | 329: 328 aprobadas, 0 fallos, 1 omitida (321/320 en 02a9088, antes de las pruebas de usabilidad del configurador) | `browser-observer-qa.mjs`: 7 grupos y `browser-human-view-qa.mjs`: 11 grupos |
 
-La prueba omitida es la del helper de identidad de Windows. Las dos QA Chromium son distintas: `browser-observer-qa.mjs` reproduce la traza sintética del baseline (`OBSERVER_QA_FRAMES`), y `browser-human-view-qa.mjs` levanta la vista humana local con su propio runtime sintético. Usa una instalación existente de Playwright 1.58.2 y su Chromium, con rutas explícitas; no apuntes a sesiones ni configuraciones privadas:
+La prueba omitida es la del helper de identidad de Windows. Las dos QA Chromium son distintas: `browser-observer-qa.mjs` no crea ningún runtime: reproduce en memoria fixtures y la traza sintética grabada por el bloque del baseline (`OBSERVER_QA_FRAMES`). `browser-human-view-qa.mjs` sí crea su propio runtime sintético y levanta la vista humana local. Usa una instalación existente de Playwright 1.58.2 y su Chromium, con rutas explícitas; no apuntes a sesiones ni configuraciones privadas:
 
 ```sh
 PLAYWRIGHT_MODULE=/absolute/playwright/index.mjs \
@@ -107,4 +107,4 @@ HUMAN_VIEW_QA_OUTPUT=/absolute/temporary/preview-qa \
 node scripts/browser-human-view-qa.mjs
 ```
 
-`$QA_ROOT` es el directorio que crea el bloque de COLLABORATOR-TODO.md. Ambas QA crean su propio runtime sintético y cierra sus procesos. Sus capturas son evidencia local y no deben agregarse al repositorio. La [vista humana](LOCAL-HUMAN-VIEW.md) es opt-in, sólo observa y usa loopback sin autenticación contra otros procesos locales: no la publiques mediante túnel. La [recuperación](READ-RECOVERY.md) reintenta únicamente lecturas con prefijo retenido completo, nunca entrada. Este checkout no es una nueva versión para el actualizador. Desde el cliente no hay una actualización nueva que aplicar hasta que exista una release publicada y verificada.
+`$QA_ROOT` es el directorio que crea el bloque de COLLABORATOR-TODO.md. La QA de la vista humana cierra el runtime y los procesos que crea; la del observador sólo cierra su navegador. Sus capturas son evidencia local y no deben agregarse al repositorio. La [vista humana](LOCAL-HUMAN-VIEW.md) es opt-in, sólo observa y usa loopback sin autenticación contra otros procesos locales: no la publiques mediante túnel. La [recuperación](READ-RECOVERY.md) reintenta únicamente lecturas con prefijo retenido completo, nunca entrada. Este checkout no es una nueva versión para el actualizador. Desde el cliente no hay una actualización nueva que aplicar hasta que exista una release publicada y verificada.
