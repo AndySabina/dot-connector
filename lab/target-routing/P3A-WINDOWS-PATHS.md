@@ -39,11 +39,22 @@ walked out of the root.
 - **Input**: a non-empty string of at most 1024 characters without control
   characters. `/` is accepted as a separator and normalized to `\`.
 - Relative input is joined to the root, never to a current directory.
-- `..` and `.` are resolved textually; the result must equal the root or start
-  with the root followed by `\`. The comparison ignores case, the Windows
-  default. The returned `path` keeps the root exactly as declared.
+- `..` and `.` are resolved textually. The result is then compared with the
+  root segment by segment (split on `\`, the drive segment included); it is
+  inside only when every root segment matches in order. Offsets are never
+  computed on a case-folded string.
+- Two segments match when they are exactly equal, or when both are pure ASCII
+  and equal ignoring ASCII case (the Windows default). A segment with any
+  non-ASCII character must match exactly.
+- `relative` is the remaining segments joined with `\`. The returned `path` is
+  the root exactly as declared, followed by `\` and `relative`, or the root
+  alone when `relative` is empty.
 - Every segment of the input is checked before normalization, because Windows
   would silently strip or reinterpret it.
+- A segment is a reserved name when its part before the first `.` (or the
+  whole segment without a dot), with trailing spaces removed, is a reserved
+  device name in any case: `nul .txt` and `CON .log` are reserved because
+  Win32 trims those spaces. Roots use the same segment check.
 
 | Reason | When |
 |---|---|
@@ -73,8 +84,11 @@ walked out of the root.
 
 ## Limits
 
-- Case is compared case-insensitively. Windows directories can be made case
-  sensitive individually; that is an executor check (p3c).
+- Case is compared case-insensitively for ASCII only. Non-ASCII names must
+  match exactly, so a path that Windows would treat as the same folder may be
+  refused; real Unicode case rules (and the per-volume upcase table) are an
+  executor check (p3c). Windows directories can also be made case sensitive
+  individually; that is an executor check (p3c) as well.
 - Short 8.3 names, symlinks, junctions and mount points are not visible in the
   text; the executor must resolve the final path (p3c).
 - `/mnt/c/...` style input and WSL rules belong to p3b.
@@ -99,3 +113,14 @@ Node 22.23.3, local, fictional data only.
 - Not distributed: `dist/build-manifest.json` has no `target-routing` entry and
   `npm pack --dry-run` lists no `lab/` file.
 - No file under `src/`, `scripts/`, `test/` or `docs/` changed.
+- Review round 2 (Judgment Day): JD-B-002 showed that slicing the original
+  path at an offset computed on `toLowerCase()` drifts when Unicode folding
+  changes length (`U+0130` becomes `i` + `U+0307`), so a root
+  `C:\Users\İsmail\proj` accepted `C:\Users\i̇smail\proj\Windows\x.txt`
+  with relative `\Windows\x.txt`. JD-B-009 showed that `nul .txt`, `CON .log`
+  and `src\aux .x` were accepted. Two tests were added first and failed (RED):
+  `node --test lab/target-routing/paths.test.mjs` — 9 tests, 7 pass, 2 fail;
+  the escape probe returned `ok: true` with relative `\Windows\x.txt` and
+  `nul .txt` was not refused. After the segment comparison and the reserved
+  name rule (GREEN): `node --test lab/target-routing/*.test.mjs` — 9 tests,
+  9 pass. `npm run build` exit 0; `npm run check:release` exit 0.

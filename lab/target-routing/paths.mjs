@@ -6,7 +6,7 @@ const INPUT_LIMIT = 1024;
 const ROOT_LIMIT = 512;
 const controls = /[\x00-\x1f\x7f-\x9f]/;
 const forbidden = /[:*?"<>|]/;
-const reserved = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
+const reserved = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])$/i;
 const driveAbsolute = /^[A-Za-z]:\\/;
 const uncPrefix = /^\\\\[^\\]+\\[^\\]+(\\|$)/;
 
@@ -17,7 +17,8 @@ const refuse = reason => verdict({ok: false, reason});
 function segmentProblem(text) {
   for (const segment of text.split('\\')) {
     if (!segment || segment === '.' || segment === '..' || /^[A-Za-z]:$/.test(segment)) continue;
-    if (reserved.test(segment)) return 'PATH_RESERVED_NAME';
+    // Win32 trims spaces before the extension, so `nul .txt` still opens NUL.
+    if (reserved.test(segment.split('.')[0].replace(/ +$/, ''))) return 'PATH_RESERVED_NAME';
     if (/[. ]$/.test(segment)) return 'PATH_TRAILING_DOT_SPACE';
   }
   return null;
@@ -49,11 +50,17 @@ export function resolveWindowsPath(root, input) {
   let candidate = path.win32.normalize(absolute ? text : root + '\\' + text);
   if (candidate.endsWith('\\') && !/^[A-Za-z]:\\$/.test(candidate)) candidate = candidate.replace(/\\+$/, '');
 
-  // Windows compares names case-insensitively by default.
-  const prefix = root.endsWith('\\') ? root : root + '\\';
-  const lower = candidate.toLowerCase();
-  if (lower === root.toLowerCase()) return verdict({ok: true, path: root, relative: ''});
-  if (!lower.startsWith(prefix.toLowerCase())) return refuse('PATH_OUTSIDE_ROOT');
-  const relative = candidate.slice(prefix.length);
-  return verdict({ok: true, path: prefix + relative, relative});
+  // Windows compares names case-insensitively by default. Only ASCII is folded here:
+  // Unicode folding can change lengths, and real Unicode case rules are an executor check.
+  const segments = value => value.split('\\').filter((part, i, all) => part || i < all.length - 1);
+  const rootParts = segments(root);
+  const parts = segments(candidate);
+  const ascii = /^[\x00-\x7f]*$/;
+  const same = (a, b) => a === b || (ascii.test(a) && ascii.test(b) && a.toLowerCase() === b.toLowerCase());
+  if (parts.length < rootParts.length || !rootParts.every((part, i) => same(parts[i], part))) {
+    return refuse('PATH_OUTSIDE_ROOT');
+  }
+  const relative = parts.slice(rootParts.length).join('\\');
+  if (!relative) return verdict({ok: true, path: root, relative: ''});
+  return verdict({ok: true, path: (root.endsWith('\\') ? root : root + '\\') + relative, relative});
 }
