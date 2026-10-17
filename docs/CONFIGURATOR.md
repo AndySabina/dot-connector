@@ -2,7 +2,7 @@
 
 Implemented CLI: `node scripts/configure.mjs detect|plan|validate|review|status|wizard`. This standalone entrypoint deliberately bypasses the operational CLI, configuration, process, transport and logging paths. It never applies configuration, starts processes, creates credentials or approves a request. The operational `dot-connector` CLI is unchanged.
 
-All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. Errors never echo invalid input, file contents or stack traces. JSON commands and wizard --file read only explicitly named regular files, at most 32768 bytes. A final symlink is rejected; symlinks in parent directories are not an isolation boundary. Interactive answers require a TTY; wizard --file additionally loads the explicitly named plan. JSON commands never consume stdin. No environment inventory, shell command or config discovery is implemented.
+All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. `help` (also `--help` or no arguments) prints readable text when stdout is a TTY or with `--human`; piped stdout or `--json` returns the unchanged JSON help envelope for agents. Using a saved error envelope as a draft fails with `CONFIGURATOR_CANCELLED_RESULT` (cancelled wizard) or `CONFIGURATOR_FAILED_RESULT` (any other error) instead of a schema error. Errors never echo invalid input, file contents or stack traces. JSON commands and wizard --file read only explicitly named regular files, at most 32768 bytes. A final symlink is rejected; symlinks in parent directories are not an isolation boundary. Interactive answers require a TTY; wizard --file additionally loads the explicitly named plan. JSON commands never consume stdin. No environment inventory, shell command or config discovery is implemented.
 
 Actual commands:
 
@@ -66,6 +66,9 @@ There are no default answers. Each prompt permits three invalid attempts, at mos
 Type :cancel at any prompt, Ctrl+C, or Ctrl+D at an empty prompt to cancel with a nonzero result and
 no plan. Do not enter credentials; the wizard never requests them. Errors do not
 echo rejected answers (a real terminal can still display what the person types).
+The duplicate/export action accepts any letter case; the final `EXPORT`
+confirmation stays exact. A rejected folder is reported as already declared or as
+an invalid format, with an example that does not collide with declared folders.
 
 The final summary includes the same validated SHA-256 and pending approval state
 as review. Type the exact word EXPORT to emit the draft. Empty input, yes, --yes
