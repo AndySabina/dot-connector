@@ -97,11 +97,11 @@ most 400 changed lines each. Full plan, phases and workflow:
 |---|---|---|---|
 | — | `target-routing/tracker` | Feature tracker, scope and plan | 🚧 Proposal, scope approved with adjustments |
 | 0 | (in tracker) | Foundation and short diagnosis: [01-DIAGNOSIS.md](01-DIAGNOSIS.md) | ✅ Done |
-| 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b): `P1-REGISTRY.md` on its branch | 🚧 Children complete; awaiting review |
-| 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b) | ⏳ Planned |
-| 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ⏳ Planned |
-| 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ⏳ Planned |
-| 5 | `target-routing/p5-reports` | Results, limits and integration proposal (p5a, p5b) | ⏳ Planned |
+| 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b): `P1-REGISTRY.md` | 🚧 Children complete; awaiting review |
+| 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b): `P2-SESSIONS.md` | 🚧 Children complete; awaiting review |
+| 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c): `P3-PATHS.md` | 🚧 Children complete; awaiting review |
+| 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b): `P4-DECISION-LOG.md` | 🚧 Children complete; awaiting review |
+| 5 | `target-routing/p5-reports` | Results, limits and integration proposal (p5a, p5b, p5c): `P5-REPORTS.md` | 🚧 Children complete; awaiting review |
 
 ## Base
 
