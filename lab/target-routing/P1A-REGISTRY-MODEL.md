@@ -44,8 +44,9 @@ The document shape is described in [P1-REGISTRY.md](P1-REGISTRY.md). Rules:
 - `pathSpace` is `windows` or `wsl`. A Windows root is a drive-absolute,
   already normalized path with backslashes (`C:\work\shop`). A WSL root is an
   absolute, already normalized POSIX path. Roots are at most 512 characters
-  and contain no control characters. UNC and full normalization belong to
-  phase 3.
+  and contain no control characters. UNC roots (`\\server\share\...`) are
+  not supported: a network share lives on another machine than the one the
+  project declares. Full path normalization belongs to phase 3.
 - Grants hold `principalId` and boolean `observe`, `write` and `execute`.
 - The input is never modified; the result is a frozen copy.
 
@@ -73,6 +74,9 @@ Errors are thrown as `Error(code)`:
   path declared as Windows, a Windows path declared as WSL, and a WSL root with
   `..` are rejected; a WSL root under `/mnt/c` is accepted as WSL only.
 - A machine with two tunnels and projects on each is valid.
+- A UNC root is rejected (review fix, PR #3: the contract now matches
+  `paths.mjs`, which rejects UNC roots too). The registry already rejected it;
+  the test pins the shared contract.
 
 ## Limits
 

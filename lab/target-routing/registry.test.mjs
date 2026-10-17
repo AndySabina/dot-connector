@@ -85,6 +85,8 @@ test('project roots must be absolute and normalized in their declared path space
   rejects(d => { d.projects[1].root = 'C:\\home\\dev\\blog'; }, 'REGISTRY_INVALID_ROOT');
   rejects(d => { d.projects[1].root = '/home/dev/../blog'; }, 'REGISTRY_INVALID_ROOT');
   rejects(d => { d.projects[1].root = '/home/dev/\u0007blog'; }, 'REGISTRY_INVALID_ROOT');
+  // Contract shared with paths.mjs: a UNC share is not on the declared machine, so it is never a root.
+  rejects(d => { d.projects[0].root = '\\\\files\\team\\shop'; }, 'REGISTRY_INVALID_ROOT');
   const mounted = document();
   mounted.projects[1].root = '/mnt/c/work/blog';
   assert.equal(validateRegistry(mounted).projects[1].root, '/mnt/c/work/blog');
