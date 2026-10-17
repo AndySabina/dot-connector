@@ -3,22 +3,41 @@ import {listProfiles, duplicateProfile} from './profile-plans.mjs';
 import {createInterface} from 'node:readline/promises';
 import {createPlan,validatePlan,reviewPlan,detectConfigurator,statusPlan} from './configurator.mjs';
 
-function folderHint(platform) {
-  return platform === 'windows'
-    ? 'Use a distinct normalized absolute Windows path, for example C:\\Projects\\Example; no .. segments. The folder is not inspected.'
-    : 'Use a distinct normalized absolute Linux path, for example /projects/example; no .. segments. The folder is not inspected.';
+// Folder hints classify a rejected answer without echoing it. The example is
+// chosen from fixed candidates so it never collides with declared folders.
+function folderGuide(machineId, platform, declared) {
+  const ids = new Set(declared.map(profile => profile.profileId));
+  let probeId = 'folder_probe';
+  while (ids.has(probeId)) probeId += '_';
+  const probe = path => ({profileId: probeId, mode: 'Personal', folder: {platform, path}, destination: {kind: 'local', id: 'local-preview'}, permissions: {}});
+  const fits = (path, others) => {
+    try { createPlan({schemaVersion: 1, machineId, profiles: [...others, probe(path)]}); return true; } catch { return false; }
+  };
+  const base = platform === 'windows' ? 'C:\\Projects\\Example' : '/projects/example';
+  const candidates = [base, ...Array.from({length: 8}, (_, i) => `${base}-${i + 2}`)];
+  const sample = candidates.find(candidate => fits(candidate, declared)) ?? candidates.at(-1);
+  const name = platform === 'windows' ? 'Windows' : 'Linux';
+  let duplicate = false;
+  const hint = () => duplicate
+    ? `That folder is already declared in this draft. Use a different normalized absolute ${name} path, for example ${sample}. The folder is not inspected.`
+    : `Use a normalized absolute ${name} path, for example ${sample}; no .. segments. The folder is not inspected.`;
+  // question() resets before every attempt, so an answer rejected before
+  // classification (control or bidi characters) never inherits a stale result.
+  hint.reset = () => { duplicate = false; };
+  return {classify(path) { duplicate = fits(path, []) && !fits(path, declared); }, hint};
 }
 
 export async function runWizard({ask,write,plan:existingPlan}) {
   if(existingPlan !== undefined)validatePlan(existingPlan);
   const question=async (prompt,valid,hint="Choose one of the options shown in this prompt.")=>{
     for(let attempt=0;attempt<3;attempt++){
+      hint.reset?.();
       const raw=await ask(prompt+' (:cancel to cancel): ');
       if(raw===null||raw===undefined||(typeof raw==='string'&&raw.trim()===':cancel'))throw Error('CONFIGURATOR_CANCELLED');
       if(typeof raw!=='string'||Buffer.byteLength(raw)>1024)throw Error('CONFIGURATOR_INPUT_LIMIT');
       const answer=raw.trim();
       if(!/[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(raw)&&valid(answer))return answer;
-      write('Invalid answer. '+hint);
+      write('Invalid answer. '+(typeof hint==='function'?hint():hint));
     }
     throw Error('CONFIGURATOR_INVALID_ANSWER');
   };
@@ -36,9 +55,10 @@ export async function runWizard({ask,write,plan:existingPlan}) {
     const mode={'1':'Personal','2':'Proyecto','3':'Consulta'}[await question('Mode: 1 Personal; 2 Proyecto (isolation unavailable); 3 Consulta (query backend unavailable)',s=>['1','2','3'].includes(s))];
     const platform=await question('Project folder platform: linux or windows',s=>['linux','windows'].includes(s));
     const base={profileId,mode,destination:{kind:'local',id:'local-preview'},permissions:{}};
+    const guide=folderGuide(machineId,platform,profiles);
     const folderPath=await question('Project folder: normalized absolute path; not inspected',s=>{
-      try{createPlan({schemaVersion:1,machineId,profiles:[...profiles,{...base,folder:{platform,path:s}}]});return true;}catch{return false;}
-    },folderHint(platform));
+      try{createPlan({schemaVersion:1,machineId,profiles:[...profiles,{...base,folder:{platform,path:s}}]});return true;}catch{guide.classify(s);return false;}
+    },guide.hint);
     const privacy=await question('Privacy intent: 1 no capabilities requested; 2 local read-only files/output requested (not granted). Remote sharing unavailable',s=>['1','2'].includes(s));
     profiles.push({...base,folder:{platform,path:folderPath},permissions:privacy==='2'?{read_files:true,read_output:true}:{}});
     if(profiles.length===8){write('Maximum eight profiles reached; review follows.');break;}
@@ -72,19 +92,21 @@ async function editProfilePlan(original, question, write) {
     }
     const full = listing.profiles.length >= 8;
     if (full) write('Maximum eight profiles reached. Duplication unavailable; export or cancel.');
-    const action = await question('Action: duplicate or export', answer => answer === 'export' || (!full && answer === 'duplicate'));
+    // Case-insensitive menu choice; the final EXPORT confirmation stays exact.
+    const action = (await question('Action: duplicate or export', answer => answer.toLowerCase() === 'export' || (!full && answer.toLowerCase() === 'duplicate'))).toLowerCase();
     if (action === 'export') return reviewAndExport(draft, question, write);
 
     const from = await question('Source profile ID', answer => listing.profiles.some(profile => profile.profileId === answer), 'Choose a source profile ID from the displayed list.');
     const name = await question('New profile name (unique label)', answer => /^[A-Za-z0-9_-]{1,64}$/.test(answer) && !listing.profiles.some(profile => profile.profileId === answer), 'Use a unique name with 1-64 letters, digits, _ or -.');
     const platform = await question('New folder platform: linux or windows', answer => ['linux', 'windows'].includes(answer));
     let candidate;
+    const guide = folderGuide(draft.intent.machineId, platform, draft.intent.profiles);
     await question('New normalized absolute folder, distinct from existing folders; not inspected', answer => {
       try {
         candidate = duplicateProfile(draft, {schemaVersion: 1, from, name, folder: {platform, path: answer}});
         return true;
-      } catch { return false; }
-    },folderHint(platform));
+      } catch { guide.classify(answer); return false; }
+    }, guide.hint);
     draft = candidate;
     write('Draft copy prepared. Capabilities reset to false; destination reset to local/local-preview. No permissions granted. Nothing saved.');
   }

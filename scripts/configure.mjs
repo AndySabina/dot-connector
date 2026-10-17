@@ -33,7 +33,7 @@ function parseOptions() {
       if (!value || (!inline && value.startsWith('--'))) throw Error('CONFIGURATOR_OPTIONS');
       options[name.slice(2)] = value;
     } else if (arg === '--json' && command !== 'wizard') options.format = 'json';
-    else if (arg === '--human' && command === 'review') options.format = 'human';
+    else if (arg === '--human' && ['review', 'help'].includes(command)) options.format = 'human';
     else throw Error('CONFIGURATOR_OPTIONS');
   }
   if ((seen.has('--json') && seen.has('--human')) ||
@@ -73,10 +73,29 @@ async function readInput(file) {
 }
 
 function unwrapPlan(input) {
+  // A saved error envelope (for example a cancelled wizard redirected to a file) is not a draft.
+  if (input?.schemaVersion === 1 && input.ok === false && typeof input.error === 'string') {
+    throw Error(input.error === 'CONFIGURATOR_CANCELLED' ? 'CONFIGURATOR_CANCELLED_RESULT' : 'CONFIGURATOR_FAILED_RESULT');
+  }
   if (input?.command !== 'plan') return input;
   if (Object.keys(input).sort().join(',') !== 'command,ok,result,schemaVersion' ||
       input.schemaVersion !== 1 || input.ok !== true) throw Error('PLAN_INVALID_SCHEMA');
   return input.result;
+}
+
+// Human help mirrors the JSON help result; agents keep JSON when stdout is not a TTY.
+function helpText(help) {
+  return [
+    'dot-connector configurator: drafts only.',
+    help.summary,
+    '',
+    'Commands:',
+    ...help.usage.map(line => '  ' + line),
+    '',
+    'Guide: ' + help.guide,
+    'Output: ' + help.output + ' Add --json for machine-readable help.',
+    'Files: ' + help.file
+  ].join('\n');
 }
 
 function emit(command, result) {
@@ -131,7 +150,8 @@ try {
         });
         break;
     }
-    if (options.format === 'human') process.stdout.write(result.text + '\n');
+    const human = options.format === 'human' || (command === 'help' && !options.format && process.stdout.isTTY);
+    if (human) process.stdout.write((command === 'help' ? helpText(result) : result.text) + '\n');
     else emit(command === 'profiles.duplicate' ? 'plan' : command, result);
   }
 } catch (error) {
@@ -141,7 +161,9 @@ try {
     CONFIGURATOR_COMMAND_UNAVAILABLE: 'Run node scripts/configure.mjs --help for draft commands.',
     CONFIGURATOR_OPTIONS: 'Run node scripts/configure.mjs --help and check the options for your command.',
     CONFIGURATOR_FILE_UNAVAILABLE: 'Use an absolute path to a regular JSON file up to 32 KiB, not a symlink. Example: /projects/example/draft.json on Linux or C:\\Projects\\Example\\draft.json on Windows.',
-    CONFIGURATOR_TTY_REQUIRED: 'Run wizard in an interactive terminal, or use plan --file /absolute/request.json --json for agents.'
+    CONFIGURATOR_TTY_REQUIRED: 'Run wizard in an interactive terminal, or use plan --file /absolute/request.json --json for agents.',
+    CONFIGURATOR_CANCELLED_RESULT: 'This file holds a cancelled wizard result, not a draft. Run the wizard again and save to a new file.',
+    CONFIGURATOR_FAILED_RESULT: 'This file holds a failed configurator result, not a draft. Run the wizard again and save to a new file.'
   };
   process.stdout.write(JSON.stringify({
     schemaVersion: 1, command: commands.includes(command) ? command : null,
