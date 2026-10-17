@@ -11,8 +11,9 @@ import {listProfiles, duplicateProfile} from '../src/profile-plans.mjs';
 
 const args = process.argv.slice(2);
 let command = args.shift();
+if (command === undefined || command === '--help') command = 'help';
 if (command === 'profiles') command = `profiles.${args.shift()}`;
-const commands = ['detect', 'plan', 'validate', 'review', 'status', 'wizard', 'profiles.list', 'profiles.duplicate'];
+const commands = ['help', 'detect', 'plan', 'validate', 'review', 'status', 'wizard', 'profiles.list', 'profiles.duplicate'];
 
 function parseOptions() {
   const options = {}, seen = new Set();
@@ -36,8 +37,8 @@ function parseOptions() {
     else throw Error('CONFIGURATOR_OPTIONS');
   }
   if ((seen.has('--json') && seen.has('--human')) ||
-      (command === 'detect' && options.file) ||
-      (!['detect', 'status', 'wizard'].includes(command) && !options.file)) {
+      (['detect', 'help'].includes(command) && options.file) ||
+      (!['help', 'detect', 'status', 'wizard'].includes(command) && !options.file)) {
     throw Error('CONFIGURATOR_OPTIONS');
   }
   if (command === 'profiles.duplicate' && ['from', 'name', 'platform', 'folder'].some(key => !options[key])) {
@@ -99,6 +100,24 @@ try {
     if (command !== 'plan') input = unwrapPlan(input);
     let result;
     switch (command) {
+      case 'help': result = {
+        scope: 'draft_only',
+        summary: 'All modes (Personal, Proyecto, Consulta) generate drafts only. No connection, permissions or isolation is activated.',
+        usage: [
+          'node scripts/configure.mjs wizard',
+          'node scripts/configure.mjs wizard --file /absolute/draft.json',
+          'node scripts/configure.mjs plan --file /absolute/request.json --json',
+          'node scripts/configure.mjs validate --file /absolute/draft.json --json',
+          'node scripts/configure.mjs profiles duplicate --file /absolute/draft.json --from original --name copy --platform linux --folder /projects/copy --json',
+          'node scripts/configure.mjs review --file /absolute/draft.json --human',
+          'node scripts/configure.mjs profiles list --file /absolute/draft.json --json',
+          'node scripts/configure.mjs detect --json',
+          'node scripts/configure.mjs status --json'
+        ],
+        guide: 'docs/USER-QUICKSTART.md',
+        output: 'JSON on stdout; wizard prompts and final instructions on stderr. review --human intentionally emits text.',
+        file: 'Use an absolute file path for the OS running Node. Folders inside the draft may declare linux or windows. Never enter secrets.'
+      }; break;
       case 'detect': result = detectConfigurator(); break;
       case 'plan': result = createPlan(input); break;
       case 'validate': result = validatePlan(input); break;
@@ -118,12 +137,16 @@ try {
 } catch (error) {
   const message = error.message ?? '';
   const code = /^(CONFIGURATOR_|PLAN_|QUERY_)[A-Z_]+$/.test(message) ? message : 'CONFIGURATOR_FAILED';
+  const guidance = {
+    CONFIGURATOR_COMMAND_UNAVAILABLE: 'Run node scripts/configure.mjs --help for draft commands.',
+    CONFIGURATOR_OPTIONS: 'Run node scripts/configure.mjs --help and check the options for your command.',
+    CONFIGURATOR_FILE_UNAVAILABLE: 'Use an absolute path to a regular JSON file up to 32 KiB, not a symlink. Example: /projects/example/draft.json on Linux or C:\\Projects\\Example\\draft.json on Windows.',
+    CONFIGURATOR_TTY_REQUIRED: 'Run wizard in an interactive terminal, or use plan --file /absolute/request.json --json for agents.'
+  };
   process.stdout.write(JSON.stringify({
     schemaVersion: 1, command: commands.includes(command) ? command : null,
     ok: false, error: code,
-    ...(code === 'CONFIGURATOR_TTY_REQUIRED' ? {
-      help: 'Run wizard in an interactive terminal, or use plan --file /absolute/request.json --json for agents.'
-    } : {})
+    ...(guidance[code] ? {help: guidance[code]} : {})
   }) + '\n');
   process.exitCode = 1;
 }

@@ -3,16 +3,22 @@ import {listProfiles, duplicateProfile} from './profile-plans.mjs';
 import {createInterface} from 'node:readline/promises';
 import {createPlan,validatePlan,reviewPlan,detectConfigurator,statusPlan} from './configurator.mjs';
 
+function folderHint(platform) {
+  return platform === 'windows'
+    ? 'Use a distinct normalized absolute Windows path, for example C:\\Projects\\Example; no .. segments. The folder is not inspected.'
+    : 'Use a distinct normalized absolute Linux path, for example /projects/example; no .. segments. The folder is not inspected.';
+}
+
 export async function runWizard({ask,write,plan:existingPlan}) {
   if(existingPlan !== undefined)validatePlan(existingPlan);
-  const question=async (prompt,valid)=>{
+  const question=async (prompt,valid,hint="Choose one of the options shown in this prompt.")=>{
     for(let attempt=0;attempt<3;attempt++){
       const raw=await ask(prompt+' (:cancel to cancel): ');
       if(raw===null||raw===undefined||(typeof raw==='string'&&raw.trim()===':cancel'))throw Error('CONFIGURATOR_CANCELLED');
       if(typeof raw!=='string'||Buffer.byteLength(raw)>1024)throw Error('CONFIGURATOR_INPUT_LIMIT');
       const answer=raw.trim();
       if(!/[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(raw)&&valid(answer))return answer;
-      write('Invalid answer. Choose an explicit listed option or a normalized absolute path.');
+      write('Invalid answer. '+hint);
     }
     throw Error('CONFIGURATOR_INVALID_ANSWER');
   };
@@ -20,18 +26,19 @@ export async function runWizard({ask,write,plan:existingPlan}) {
   if(detected.applyAvailable||detected.credentialInputAccepted)throw Error('CONFIGURATOR_POLICY_CHANGED');
   write('Configuration draft only. No OS isolation or access activation is available.');
   write('Implemented: detect, plan, validate, review, status and draft export. Unavailable: apply, remote connection, permission grants and OS isolation. Do not enter secrets.');
+  write('Personal, Proyecto and Consulta are draft-only modes. None creates a connection or grants access.');
   if(existingPlan !== undefined)return editProfilePlan(existingPlan,question,write);
   const label=s=>/^[A-Za-z0-9_-]{1,64}$/.test(s);
-  const machineId=await question('Machine label (letters, digits, _ or -; no discovery)',label);
+  const machineId=await question('Machine label (letters, digits, _ or -; no discovery)',label,'Use 1-64 letters, digits, _ or -; for example local.');
   const profiles=[];
   do {
-    const profileId=await question('Profile name (unique label)',s=>label(s)&&!profiles.some(p=>p.profileId===s));
+    const profileId=await question('Profile name (unique label)',s=>label(s)&&!profiles.some(p=>p.profileId===s),'Use a unique name with 1-64 letters, digits, _ or -; for example review.');
     const mode={'1':'Personal','2':'Proyecto','3':'Consulta'}[await question('Mode: 1 Personal; 2 Proyecto (isolation unavailable); 3 Consulta (query backend unavailable)',s=>['1','2','3'].includes(s))];
     const platform=await question('Project folder platform: linux or windows',s=>['linux','windows'].includes(s));
     const base={profileId,mode,destination:{kind:'local',id:'local-preview'},permissions:{}};
     const folderPath=await question('Project folder: normalized absolute path; not inspected',s=>{
       try{createPlan({schemaVersion:1,machineId,profiles:[...profiles,{...base,folder:{platform,path:s}}]});return true;}catch{return false;}
-    });
+    },folderHint(platform));
     const privacy=await question('Privacy intent: 1 no capabilities requested; 2 local read-only files/output requested (not granted). Remote sharing unavailable',s=>['1','2'].includes(s));
     profiles.push({...base,folder:{platform,path:folderPath},permissions:privacy==='2'?{read_files:true,read_output:true}:{}});
     if(profiles.length===8){write('Maximum eight profiles reached; review follows.');break;}
@@ -50,7 +57,8 @@ async function reviewAndExport(plan, question, write) {
   }
   write(review.text);
   write('Privacy selections describe future intent only. No declared project files inspected, shared or changed. All profiles unavailable; approval pending; actual runtime unknown.');
-  await question('Type EXPORT to return this validated draft, or :cancel. EXPORT is not approval', answer => answer === 'EXPORT');
+  await question('Type EXPORT to return this validated draft, or :cancel. EXPORT is not approval', answer => answer === 'EXPORT', 'Type EXPORT exactly to return the draft, or :cancel to leave.');
+  write('Plan generated; no connection created. JSON is on stdout. Review the saved draft with node scripts/configure.mjs review --file /absolute/draft.json --human; see docs/USER-QUICKSTART.md for saving without overwriting.');
   return plan;
 }
 
@@ -67,8 +75,8 @@ async function editProfilePlan(original, question, write) {
     const action = await question('Action: duplicate or export', answer => answer === 'export' || (!full && answer === 'duplicate'));
     if (action === 'export') return reviewAndExport(draft, question, write);
 
-    const from = await question('Source profile ID', answer => listing.profiles.some(profile => profile.profileId === answer));
-    const name = await question('New profile name (unique label)', answer => /^[A-Za-z0-9_-]{1,64}$/.test(answer) && !listing.profiles.some(profile => profile.profileId === answer));
+    const from = await question('Source profile ID', answer => listing.profiles.some(profile => profile.profileId === answer), 'Choose a source profile ID from the displayed list.');
+    const name = await question('New profile name (unique label)', answer => /^[A-Za-z0-9_-]{1,64}$/.test(answer) && !listing.profiles.some(profile => profile.profileId === answer), 'Use a unique name with 1-64 letters, digits, _ or -.');
     const platform = await question('New folder platform: linux or windows', answer => ['linux', 'windows'].includes(answer));
     let candidate;
     await question('New normalized absolute folder, distinct from existing folders; not inspected', answer => {
@@ -76,7 +84,7 @@ async function editProfilePlan(original, question, write) {
         candidate = duplicateProfile(draft, {schemaVersion: 1, from, name, folder: {platform, path: answer}});
         return true;
       } catch { return false; }
-    });
+    },folderHint(platform));
     draft = candidate;
     write('Draft copy prepared. Capabilities reset to false; destination reset to local/local-preview. No permissions granted. Nothing saved.');
   }
