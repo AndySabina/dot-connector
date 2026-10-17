@@ -156,3 +156,13 @@ after creating a copy, unchanged export, forbidden file fields/flags and oversiz
 files. The loaded-plan workflow is also exercised at 32x8 dimensions with separate
 JSON stdout. No existing terminal is adopted. Visual rendering, accessibility and
 ConPTY remain outside this Linux PTY evidence.
+
+## Explicit option values
+
+All value options accept either --option VALUE or --option=VALUE, including --file
+for plan/validate/review/status, profiles commands and wizard. Use the equals form
+for values beginning with --; for example --from=--source and --name=--copy preserve
+valid profile labels. Separated option-looking values remain errors, so an omitted
+value cannot silently consume the next option. Only the first equals is structural.
+Unknown, empty or repeated options fail; boolean flags accept no value. Shell quoting
+is still the caller's responsibility. See [profile examples](PROFILE-PLANS.md).

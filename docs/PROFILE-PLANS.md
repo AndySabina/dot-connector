@@ -23,6 +23,21 @@ node scripts/configure.mjs profiles duplicate \
 folder syntax uses an absolute drive path with backslashes and explicit platform
 `windows`. Arguments must be quoted according to the caller's shell.
 
+Every value option also accepts --option=value. This form is required when a value
+starts with --, because the separated form deliberately refuses an option-looking
+next token. Quoting a separated --source value does not change that rule:
+
+```sh
+node scripts/configure.mjs profiles duplicate --file="$PWD/plan.json" \
+  --from=--source --name=--copy --platform=linux --folder=/fixture/copy --json
+```
+
+Only the first equals separates the option name; later equals remain literal value
+characters. Empty values, unknown options and repeated options (including a mixture
+of separated/equals forms) are rejected. --json and --human remain value-less flags;
+--json=true and --human=true are invalid. Equals values still pass the same label,
+folder and plan validators; they are never evaluated as commands.
+
 Duplicate output goes to stdout. The original file is not changed. To persist a
 draft, the caller can redirect stdout to a fresh file and check the exit status
 before passing it to `validate`, `review` or `status`. Shell redirection can truncate

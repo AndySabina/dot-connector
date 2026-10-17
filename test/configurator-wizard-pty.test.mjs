@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix='dot-wizard-pty-',dir=os.environ.get('TM
  if 'plan' in config:
   original_plan=config['plan'] if isinstance(config['plan'],str) else json.dumps(config['plan'])
   with open(root+'/input-plan.json','w') as f: f.write(original_plan)
-  extra=['--file',root+'/input-plan.json']
+  extra=['--file='+root+'/input-plan.json'] if config.get('inlineFile') else ['--file',root+'/input-plan.json']
  extra+=config.get('flags',[])
  before=[]
  for base,dirs,files in os.walk(root):
@@ -137,4 +137,13 @@ test('owned PTY refuses secret fields, unknown options and oversized files befor
     assert.equal(result.sent, 0);
     assert.equal(result.stderr, '');
   }
+});
+
+test('owned PTY wizard accepts equals file syntax and double-hyphen profile labels', native, () => {
+  const intent = savedPlan().intent;
+  intent.profiles[0].profileId = '--source';
+  const result = run(['duplicate', '--source', '--copy', 'linux', '/fixture/copy', 'export', 'EXPORT'], 80, 24, {plan: createPlan(intent), inlineFile: true});
+  assert.equal(result.code, 0);
+  assert.equal(result.envelope.result.intent.profiles[1].profileId, '--copy');
+  assert.equal(validatePlan(result.envelope.result).valid, true);
 });

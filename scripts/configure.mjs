@@ -20,19 +20,24 @@ function parseOptions() {
     ? ['--file', '--from', '--name', '--platform', '--folder'] : ['--file'];
   while (args.length) {
     const arg = args.shift();
-    if (seen.has(arg)) throw Error('CONFIGURATOR_OPTIONS');
-    seen.add(arg);
-    if (values.includes(arg)) {
-      const value = args.shift();
-      if (!value || value.startsWith('--')) throw Error('CONFIGURATOR_OPTIONS');
-      options[arg.slice(2)] = value;
-    } else if (arg === '--json') options.format = 'json';
+    const separator = arg.indexOf('=');
+    const name = separator < 0 ? arg : arg.slice(0, separator);
+    if (seen.has(name)) throw Error('CONFIGURATOR_OPTIONS');
+    seen.add(name);
+    if (values.includes(name)) {
+      // Equals explicitly binds an option-looking value. Split only once so a
+      // literal equals inside a path/value survives without shell evaluation.
+      const inline = separator >= 0;
+      const value = inline ? arg.slice(separator + 1) : args.shift();
+      if (!value || (!inline && value.startsWith('--'))) throw Error('CONFIGURATOR_OPTIONS');
+      options[name.slice(2)] = value;
+    } else if (arg === '--json' && command !== 'wizard') options.format = 'json';
     else if (arg === '--human' && command === 'review') options.format = 'human';
     else throw Error('CONFIGURATOR_OPTIONS');
   }
   if ((seen.has('--json') && seen.has('--human')) ||
       (command === 'detect' && options.file) ||
-      (!['detect', 'status'].includes(command) && !options.file)) {
+      (!['detect', 'status', 'wizard'].includes(command) && !options.file)) {
     throw Error('CONFIGURATOR_OPTIONS');
   }
   if (command === 'profiles.duplicate' && ['from', 'name', 'platform', 'folder'].some(key => !options[key])) {
@@ -79,20 +84,17 @@ function emit(command, result) {
 
 try {
   if (!commands.includes(command)) throw Error('CONFIGURATOR_COMMAND_UNAVAILABLE');
+  const options = parseOptions();
   if (command === 'wizard') {
     let existingPlan;
-    if (args.length) {
-      if (args.length !== 2 || args[0] !== '--file' || !args[1] || args[1].startsWith('--')) {
-        throw Error('CONFIGURATOR_OPTIONS');
-      }
+    if (options.file) {
       // Reject noninteractive use before reading the explicitly named plan.
       if (!process.stdin.isTTY || !process.stderr.isTTY) throw Error('CONFIGURATOR_TTY_REQUIRED');
-      existingPlan = unwrapPlan(await readInput(args[1]));
+      existingPlan = unwrapPlan(await readInput(options.file));
       validatePlan(existingPlan);
     }
     emit('plan', await interactiveWizard(process.stdin, process.stderr, existingPlan));
   } else {
-    const options = parseOptions();
     let input = options.file ? await readInput(options.file) : undefined;
     if (command !== 'plan') input = unwrapPlan(input);
     let result;
