@@ -1,6 +1,6 @@
 # 01 — Diagnosis of what exists
 
-Branch: `target-routing/01-diagnosis`. Base: `osmelpv/dot-connector` `main`
+Phase 0, part of `target-routing/tracker`. Base: `osmelpv/dot-connector` `main`
 at `407f942`. Proposal only; read-only inspection, nothing changed in `src/`.
 
 ## Purpose
