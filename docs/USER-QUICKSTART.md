@@ -4,7 +4,7 @@ Este configurador prepara un documento para revisar. **Personal, Proyecto y Cons
 
 ## Comenzar desde este checkout
 
-Abre una terminal en el checkout que contiene esta guía. La versión del paquete por sí sola no identifica las funciones disponibles: varias ramas todavía declaran 0.1.13. Este cambio parte del PR #3 y añade ayuda al configurador; la vista humana y su recuperación se desarrollan en ramas separadas.
+Abre una terminal en el checkout que contiene esta guía. La versión del paquete por sí sola no identifica las funciones disponibles: varias ramas todavía declaran 0.1.13. La rama review/integrated-setup-preview reúne wizard, perfiles, ayuda, cleanup de salida, vista humana local y recuperación de lectura. El configurador sigue separado de la activación de la vista: exportar un borrador no inicia ninguna sesión.
 
 ```sh
 node scripts/configure.mjs --help
@@ -59,3 +59,39 @@ Estos bloques de guardado son para Bash/WSL. En PowerShell puedes ejecutar ayuda
 Probar este checkout separado no actualiza una instalación gestionada ni demuestra qué versión está instalada. Esta mejora local todavía no es una release publicada. El actualizador admite releases numéricas publicadas o el canal experimental, no una rama ni un SHA. Cambiar el commit conservando la misma versión puede devolver `UPDATE_RELEASE_IDENTITY_CHANGED`: no republiques 0.1.13 para eludirlo.
 
 Un archivo local sólo sirve para un nuevo root de diagnóstico (`diagnostic-only`), no para actualizar un root existente. El cliente MCP predeterminado sólo expone `terminal_status`; no hay un botón de actualización verificado que esta guía pueda recomendar. Las instrucciones de actualización deben proceder de una publicación nueva y verificada. Este flujo termina con un borrador revisable, no con una instalación o conexión lista.
+
+
+## Revisar la rama integrada sin actualizar la instalación
+
+Usa un directorio nuevo para este checkout; no reemplaces una instalación existente.
+
+```sh
+git clone --branch review/integrated-setup-preview --single-branch https://github.com/osmelpv/dot-connector.git dot-connector-preview
+cd dot-connector-preview
+git rev-parse HEAD
+node --version
+npm ci
+node scripts/configure.mjs --help
+node scripts/configure.mjs wizard
+```
+
+Compara el SHA con el publicado en el PR de revisión. La validación de este incremento se hizo con Node 22. La política de versiones de Node se revisa por separado en issue #5; este PR no la cambia. `npm ci` instala las dependencias declaradas en este checkout y requiere conectividad al registro; no actualiza la instalación gestionada.
+
+Para repetir las pruebas Linux, con Python 3 y tmux ya disponibles:
+
+```sh
+DOT_TMUX_LAB_TEST=1 node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs
+node scripts/build.mjs
+node scripts/check-release.mjs
+```
+
+Para la QA Chromium usa una instalación existente de Playwright y su Chromium, con rutas explícitas; no apuntes a sesiones ni configuraciones privadas:
+
+```sh
+PLAYWRIGHT_MODULE=/absolute/playwright/index.mjs \
+PLAYWRIGHT_BROWSERS_PATH=/absolute/playwright-browsers \
+HUMAN_VIEW_QA_OUTPUT=/absolute/temporary/preview-qa \
+node scripts/browser-human-view-qa.mjs
+```
+
+La QA crea su propio runtime sintético y cierra sus procesos. Sus capturas son evidencia local y no deben agregarse al repositorio. La [vista humana](LOCAL-HUMAN-VIEW.md) es opt-in, sólo observa y usa loopback sin autenticación contra otros procesos locales: no la publiques mediante túnel. La [recuperación](READ-RECOVERY.md) reintenta únicamente lecturas con prefijo retenido completo, nunca entrada. Este checkout no es una nueva versión para el actualizador. Desde el cliente no hay una actualización nueva que aplicar hasta que exista una release publicada y verificada.
