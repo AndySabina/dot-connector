@@ -1,74 +1,88 @@
 # Target routing — Stage 2 tracker
 
-> **Status: DRAFT — scope pending approval. Reference only, not deployed.**
+> **Status: PROPOSAL — reference only, not deployed.**
 > This folder lives under `lab/`, which is excluded from the distributed
-> package. Nothing here connects to real machines, tunnels or terminals,
-> installs tools, or changes the user's environment, credentials or policies.
+> package. Documentation here is a proposal: it is not implemented code and not
+> a real connection test. Nothing here connects to real machines, tunnels or
+> terminals, installs tools, or changes the user's environment, credentials or
+> policies.
 
 ## What this is
 
-The design and pure reference code for a **gatekeeper**: the layer that
-decides, for every request from dot, whether it is allowed, exactly where it
-goes, and in which agent session — before anything reaches the executor.
+The design and pure reference code for a **target resolver and policy check**:
+given a request and a supplied configuration, it decides whether the request
+resolves to exactly one known target (machine, tunnel, project, session) and
+whether the supplied policy allows the requested operation there.
 
 ## The problem
 
 dot can reach a user's computer through a tunnel and drive a terminal there.
-Without a decision layer, that access is effectively unlimited:
+Without a decision layer:
 
-- **Wrong target.** A user may have several computers (work, personal) and
-  projects with the same name or the same path on each. Names, the current
-  directory or a matching path can send work to the wrong place.
-- **Mixed context.** Several agent sessions can be open at once. A late
-  response from one project can be taken as the result of another.
-- **Out of scope.** dot could act outside the requested project, directly or
-  by asking the agent CLI to do it for it. This matters most if dot itself is
-  compromised: it must not be able to reach private files unrelated to the task.
-- **Untrusted content.** Terminal output can carry prompt injection aimed at dot.
+- **Wrong target.** A user may have several computers and projects with the
+  same name or the same path on each. Names, the current directory or a
+  matching path can send work to the wrong place.
+- **Mixed context.** A late result from one project or session can be taken as
+  the result of another after a project switch.
+- **Unauthorized operations.** Permission granted in one project must not be
+  applied to another.
+- **Untrusted content.** Terminal output can contain text that looks like
+  instructions.
 
-## How it is solved
+## How it is approached
 
-- dot never receives a free shell. It can only use **named actions**: launch an
-  allowed agent CLI in the exact project root, write to that agent, and read
-  from it. The agent does the work; dot only orchestrates it.
-- Every request resolves to **exactly one authorized target** (machine, tunnel,
-  project, session) or is denied. Ambiguity, missing permission or any identity
-  mismatch denies by default.
-- The launch order is built from the **user's own configuration** (agent
-  catalog, launch profile with or without a terminal multiplexer such as herdr),
-  never from text sent by dot.
-- Requests and results carry a **seal** (project + session incarnation). Project
-  switches revalidate everything and late responses are rejected.
-- Anything outside the project **always requires user approval**.
-- The decision is returned **frozen**: the executor consumes it but cannot
-  change the target.
+- Stable identities for machine, tunnel, project and session context. Display
+  names, cwd or matching paths never replace identity.
+- A tunnel is bound to exactly one machine. Several projects on that machine
+  may share it; sharing is allowed, not required.
+- Generic per-project permissions: **observe**, **write**, **execute**. A
+  permission in one project never grants anything in another.
+- Every request resolves to exactly one target or is denied with a reason code.
+  Missing permission, ambiguity, unknown targets or a mismatch between project,
+  machine, tunnel or session deny by default.
+- Results and session state are checked against project, session incarnation
+  and configuration version. Results from a previous context are rejected.
+- A project switch never treats "cancel" as "undo": an operation already
+  dispatched keeps an uncertain outcome and is not repeated.
+- Terminal output is treated as untrusted data, never as instructions.
 
-## Why — and the honest promise
+## What it can claim — verifiable statements only
 
-The goal is to keep dot's work **truthful and inside the requested scope**
-without changing the user's environment.
+With the supplied configuration and policy, the reference code is meant to
+demonstrate that it can:
 
-Without operating-system isolation, no plugin can make out-of-scope access
-strictly impossible: the agent CLI runs with the user's permissions. The promise
-of this feature is therefore **"very hard, visible and stoppable"**:
+1. detect inconsistent targets (project, machine, tunnel or session mismatch);
+2. deny operations that the supplied policy does not authorize;
+3. reject results that belong to a previous context.
 
-- use the agent's own safe or sandbox mode when the agent offers one;
-- filter dot's requests and watch the agent's output for out-of-scope paths;
-- require user approval, keep the existing human pause and revocation;
-- record every decision, and document the limits plainly.
+It does **not** demonstrate containment of a compromised dot or agent. That
+requires an independent execution boundary, which this layer is not.
 
-Users who need a hard guarantee must add isolation themselves; this layer uses
-it when present and never requires it.
+## Limits
+
+- **Frozen results** prevent accidental mutation of the returned object. They do
+  not stop a compromised executor from ignoring the decision. Validating and
+  enforcing the decision in the executor is an integration requirement, not a
+  guarantee provided by `Object.freeze`.
+- **The project/session/incarnation/version binding** is an identity and context
+  check. It is not a cryptographic seal, and it is not trusted authorization
+  when the values come from the requester.
+- **Requester identity** must come from an existing trusted mechanism, never
+  from fields the request itself supplies.
+- **Paths**: a pure resolver cannot prove symlink, junction, mount or case
+  behavior. Those checks belong to the executor against the real filesystem.
+- **Output scanning** can only warn after an access; it does not prove
+  prevention, and the absence of a path in text does not prove safety.
+- Plugin permissions do not replace transport authentication or operating
+  system isolation.
 
 ## Boundaries
 
-- **This feature decides and authorizes.** It is pure code tested with
-  fictional data.
-- **The executor and the tunnel are owned by another stage.** Opening the
-  multiplexer or terminal, launching the agent and transporting messages are
-  out of scope here.
+- This feature decides and checks; it is pure code tested with fictional data.
+- The executor, the tunnel and the direct shell are owned by the main stage and
+  are not modified here. Existing human pause and revocation stay unchanged.
 
-Full task list, out-of-scope items and decisions: [SCOPE.md](SCOPE.md).
+Full task list, deferred items and decisions: [SCOPE.md](SCOPE.md).
 
 ## Branch model
 
@@ -87,15 +101,13 @@ main
   this folder.
 - Code, tests and documentation of the same behavior stay in the same branch.
 - Each child closes with QA and evidence, then merges back into the tracker.
-  The tracker is proposed upstream only when the feature is complete.
+  Nothing is merged or integrated upstream.
 
 ## Work units
 
 | # | Branch | Purpose | Status |
 |---|--------|---------|--------|
-| — | `target-routing/tracker` | Feature tracker, scope and branch model | 🚧 Draft, scope pending approval |
-
-Child branches are defined after the scope is approved.
+| — | `target-routing/tracker` | Feature tracker, scope and branch model | 🚧 Proposal, scope approved with adjustments |
 
 ## Base
 
