@@ -92,6 +92,61 @@ test('project roots must be absolute and normalized in their declared path space
   assert.equal(validateRegistry(mounted).projects[1].root, '/mnt/c/work/blog');
 });
 
+test('Windows roots follow the segment rules of paths.mjs', () => {
+  rejects(d => { d.projects[0].root = 'C:\\work\\nul'; }, 'REGISTRY_INVALID_ROOT');
+  rejects(d => { d.projects[0].root = 'C:\\work\\shop.'; }, 'REGISTRY_INVALID_ROOT');
+  rejects(d => { d.projects[0].root = 'C:\\work\\shop '; }, 'REGISTRY_INVALID_ROOT');
+  rejects(d => { d.projects[0].root = 'C:\\com1\\x'; }, 'REGISTRY_INVALID_ROOT');
+  rejects(d => { d.projects[0].root = 'C:\\work\\Aux .txt'; }, 'REGISTRY_INVALID_ROOT');
+  rejects(d => { d.projects[0].root = 'C:\\work\\lpt\u00b9'; }, 'REGISTRY_INVALID_ROOT');
+  for (const c of [':', '*', '?', '"', '<', '>', '|']) {
+    rejects(d => { d.projects[0].root = 'C:\\work\\a' + c + 'b'; }, 'REGISTRY_INVALID_ROOT');
+  }
+  const named = document();
+  named.projects[0].root = 'C:\\work\\console.d\\nul-x';
+  assert.equal(validateRegistry(named).projects[0].root, 'C:\\work\\console.d\\nul-x');
+});
+
+test('projects on one machine cannot have equal or nested roots', () => {
+  const project = (projectId, pathSpace, root) => ({machineId: 'm-alpha', projectId, tunnelId: 't-alpha', pathSpace, root,
+    grants: [{principalId: 'u-dot', observe: true, write: true, execute: false}]});
+  // The three roots of JD-B-003: nested, case-variant and equal.
+  rejects(d => { d.projects.push(project('p-outer', 'windows', 'C:\\work')); }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects.push(project('p-twin', 'windows', 'C:\\WORK\\shop')); }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects.push(project('p-same', 'windows', 'C:\\work\\shop')); }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects.push(project('p-inner', 'windows', 'c:\\Work\\Shop\\inner')); }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects.push(project('p-drive', 'windows', 'C:\\')); }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects.push(project('p-all', 'wsl', '/')); }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects.push(project('p-dev', 'wsl', '/home/dev')); }, 'REGISTRY_ROOT_OVERLAP');
+  // WSL /mnt/<letter> roots are mapped to the drive only to refuse overlaps.
+  rejects(d => { d.projects[1].root = '/mnt/c/work'; }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects[1].root = '/mnt/c/WORK/shop/x'; }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects[1].root = '/mnt/c'; }, 'REGISTRY_ROOT_OVERLAP');
+  // WSL roots that contain the drive mounts ('/', '/mnt') contain every Windows root of that machine.
+  rejects(d => { d.projects[1].root = '/mnt'; }, 'REGISTRY_ROOT_OVERLAP');
+  rejects(d => { d.projects[1].root = '/'; }, 'REGISTRY_ROOT_OVERLAP');
+  // Cross-machine: same nested shape on m-beta does not overlap m-alpha.
+  rejects(d => { d.projects[2].root = 'C:\\work'; d.projects[2].machineId = 'm-alpha'; d.projects[2].tunnelId = 't-alpha';
+    d.projects[2].projectId = 'p-outer'; }, 'REGISTRY_ROOT_OVERLAP');
+  const apart = document();
+  apart.projects[2].root = 'C:\\work';
+  assert.equal(validateRegistry(apart).projects[2].root, 'C:\\work');
+
+  const siblings = document();
+  siblings.projects.push(project('p-shop2', 'windows', 'C:\\work\\shop2'));
+  siblings.projects.push(project('p-blog2', 'wsl', '/home/dev/blog2'));
+  siblings.projects.push(project('p-mounted', 'wsl', '/mnt/d/work/shop'));
+  siblings.projects.push(project('p-other-drive', 'windows', 'D:\\work\\blog'));
+  assert.equal(validateRegistry(siblings).projects.length, 7);
+  // Identical roots on different machines remain valid (fixture: p-shop on m-alpha and m-beta).
+  assert.equal(validateRegistry(document()).projects[2].root, 'C:\\work\\shop');
+});
+
+test('root validity is checked before overlap', () => {
+  rejects(d => { d.projects.push({...structuredClone(d.projects[0]), projectId: 'p-dot', root: 'C:\\work\\shop.'}); },
+    'REGISTRY_INVALID_ROOT');
+});
+
 test('tunnel sharing is allowed but not required', () => {
   const separate = document();
   separate.tunnels.push({tunnelId: 't-alpha-2', machineId: 'm-alpha'});
