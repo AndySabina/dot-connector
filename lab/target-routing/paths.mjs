@@ -56,3 +56,32 @@ export function resolveWindowsPath(root, input) {
   const relative = candidate.slice(prefix.length);
   return verdict({ok: true, path: prefix + relative, relative});
 }
+
+function validWslRoot(root) {
+  return typeof root === 'string' && root.length <= ROOT_LIMIT && !controls.test(root) && !root.includes('\\') &&
+    path.posix.isAbsolute(root) && path.posix.normalize(root) === root && (root === '/' || !root.endsWith('/'));
+}
+
+// WSL names are case sensitive. C:\ and /mnt/c/ are never treated as equivalent here.
+export function resolveWslPath(root, input) {
+  if (!validWslRoot(root)) return refuse('ROOT_INVALID');
+  if (typeof input !== 'string' || input.length === 0 || input.length > INPUT_LIMIT || controls.test(input)) {
+    return refuse('PATH_INVALID');
+  }
+  if (/^[A-Za-z]:/.test(input) || input.includes('\\')) return refuse('PATH_SPACE_MISMATCH');
+  let candidate = path.posix.normalize(input.startsWith('/') ? input : root + '/' + input);
+  if (candidate.length > 1 && candidate.endsWith('/')) candidate = candidate.replace(/\/+$/, '');
+
+  const prefix = root === '/' ? '/' : root + '/';
+  if (candidate === root) return verdict({ok: true, path: root, relative: ''});
+  if (!candidate.startsWith(prefix)) return refuse('PATH_OUTSIDE_ROOT');
+  const relative = candidate.slice(prefix.length);
+  return verdict({ok: true, path: prefix + relative, relative});
+}
+
+export function resolvePath(project, input) {
+  if (project?.pathSpace === 'wsl') return resolveWslPath(project.root, input);
+  if (project?.pathSpace !== 'windows') return refuse('PATH_SPACE_INVALID');
+  if (typeof input === 'string' && /^\/mnt\/[A-Za-z](\/|$)/.test(input)) return refuse('PATH_SPACE_MISMATCH');
+  return resolveWindowsPath(project.root, input);
+}
