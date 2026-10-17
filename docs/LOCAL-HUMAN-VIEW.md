@@ -35,17 +35,19 @@ No tokens or cookies are issued. It must not be forwarded through a tunnel.
 
 One ordered read is outstanding at a time; responses are limited to 32 KiB,
 cursor/request sizes and HTTP connections are bounded. The browser awaits each
-validated frame and renderer completion before polling again. No replay queue or
-automatic reconnection is added. The existing IPC request has an eight-second
+validated frame and renderer completion before polling again. No replay queue is added. Transport failures permit at most two read-only
+recovery attempts per page lifetime, rebuilding from cursor zero with the same
+identity and complete retained prefix; see [read recovery](READ-RECOVERY.md). The existing IPC request has an eight-second
 deadline. View shutdown destroys its HTTP sockets and joins the outstanding read;
 the CLI closes IPC first to settle a disconnected read.
 
 The existing XtermObserver validates identity/order/bytes and suppresses keyboard,
 paste, mouse and terminal replies. Its OSC handlers consume title, hyperlink and
 clipboard commands. No raw VT is printed by the companion to the host terminal.
-On a gap, changed identity, malformed frame or unavailable source, the renderer
-is disposed and a stopped message appears. Restarting a view begins at cursor
-zero and may immediately hit a gap; there is no checkpoint recovery. Runtime
+On a gap, changed identity, malformed frame or explicit source rejection, the
+renderer is disposed and a stopped message appears. Transport cuts dispose the
+old renderer before a bounded full-prefix reconstruction. Restarting a view begins at cursor
+zero and may immediately hit a gap; there is no checkpoint or missing-prefix recovery. Runtime
 geometry stays 80×24; window resizing changes only the outer page layout.
 
 Tests use only fresh synthetic runtime/panes. Browser QA requires an existing

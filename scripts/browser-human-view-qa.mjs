@@ -19,7 +19,7 @@ try{
   if(u.pathname==='/observer.mjs'){
    // Expose the unchanged renderer through a QA-only subclass to inspect its screen.
    const source=await readFile('src/xterm-observer.mjs','utf8');
-   return route.fulfill({contentType:'text/javascript',body:source.replace('export class XtermObserver','class BaseObserver')+'\nexport class XtermObserver extends BaseObserver {constructor(...args){super(...args);globalThis.qaObserver=this;}}\n'});
+   return route.fulfill({contentType:'text/javascript',body:source.replace('export class XtermObserver','class BaseObserver')+'\nexport class XtermObserver extends BaseObserver {constructor(...args){super(...args);globalThis.qaObserver=this;(globalThis.qaObservers??=[]).push(this);}}\n'});
   }
   return route.continue();
  });
@@ -43,6 +43,20 @@ try{
  await page.screenshot({path:out+'/live-wide.png',fullPage:true});
  await page.setViewportSize({width:480,height:800});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:out+'/live-narrow.png',fullPage:true});results.push('narrow layout preserves fixed 80×24 owner geometry');
+
+ const originalScreen=await page.evaluate(()=>qaObserver.screen());
+ for(const cutMode of ['before-response','after-response']){
+  const count=await page.evaluate(()=>qaObservers.length);let cut=false;
+  await page.route('**/frame?*',async route=>{if(!cut){cut=true;if(cutMode==='after-response')await route.fetch();return route.abort('failed');}return route.continue();});
+  await page.waitForFunction(count=>qaObservers.length>count&&qaObserver.screen()?.lines.join('\n').includes('LIVE_HUMAN_VIEW'),count);
+  assert.deepEqual(await page.evaluate(()=>qaObserver.screen()),originalScreen);
+  assert.equal(await page.evaluate(()=>qaObservers.slice(0,-1).every(o=>o.screen()===null)),true);
+  await page.unroute('**/frame?*');results.push('read-only full-prefix rebuild '+cutMode+' preserves screen without duplicated input');
+ }
+ await page.route('**/frame?*',route=>route.abort('failed'));
+ await page.waitForFunction(()=>/recovery limit reached/.test(document.querySelector('#status').textContent));
+ assert.equal(await page.locator('.xterm').count(),0);await page.unroute('**/frame?*');results.push('third transport cut exhausts lifetime budget without reconnecting');
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Observing'));
  await page.getByRole('button',{name:'Disconnect view'}).click();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Disconnected'));
  assert.equal(await page.locator('.xterm').count(),0);

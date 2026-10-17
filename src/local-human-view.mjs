@@ -11,6 +11,7 @@ export async function serveOrderedHumanView(client){
  const binding=Object.freeze({...client.identity}),identity=Object.freeze({...output.identity});
  const assets=new Map(await Promise.all([
   ['/view.mjs','../src/local-human-view-browser.mjs','text/javascript'],
+  ['/reader.mjs','../src/human-view-reader.mjs','text/javascript'],
   ['/observer.mjs','../src/xterm-observer.mjs','text/javascript'],
   ['/xterm.js','../node_modules/@xterm/xterm/lib/xterm.js','text/javascript'],
   ['/xterm.css','../node_modules/@xterm/xterm/css/xterm.css','text/css']
