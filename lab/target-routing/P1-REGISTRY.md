@@ -97,15 +97,15 @@ consistency, permission, tunnel status.
 | `TUNNEL_UNAVAILABLE` | The project's tunnel is not reported as up |
 
 Registry validation fails with `REGISTRY_INVALID`, `REGISTRY_DUPLICATE_ID`,
-`REGISTRY_UNKNOWN_MACHINE`, `REGISTRY_TUNNEL_MACHINE_MISMATCH` or
+`REGISTRY_UNKNOWN_MACHINE`, `REGISTRY_UNKNOWN_TUNNEL`, `REGISTRY_TUNNEL_MACHINE_MISMATCH` or
 `REGISTRY_INVALID_ROOT`.
 
 ## Child PRs
 
-| Child | Branch | Targets | Content | Est. |
-|---|---|---|---|---|
-| p1a | `target-routing/p1a-registry-model` | `p1-registry` | `validateRegistry`, registry reason codes, registry acceptance checks | ~280 |
-| p1b | `target-routing/p1b-target-resolution` | `p1a-registry-model` | `resolveTarget`, decision shape, resolution reason codes and acceptance checks | ~330 |
+| Child | Branch | Targets | Content | Est. | Status |
+|---|---|---|---|---|---|
+| p1a | `target-routing/p1a-registry-model` | `p1-registry` | `validateRegistry`, registry reason codes, registry acceptance checks | ~280 | ✅ [P1A-REGISTRY-MODEL.md](P1A-REGISTRY-MODEL.md) |
+| p1b | `target-routing/p1b-target-resolution` | `p1a-registry-model` | `resolveTarget`, decision shape, resolution reason codes and acceptance checks | ~330 | ⏳ Planned |
 
 Each child follows the workflow in [PLAN.md](PLAN.md): document, tests first
 with fictional data (`lab/target-routing/*.test.mjs`), pure implementation with
