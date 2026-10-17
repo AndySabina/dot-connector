@@ -108,6 +108,7 @@ main
 | # | Branch | Purpose | Status |
 |---|--------|---------|--------|
 | — | `target-routing/tracker` | Feature tracker, scope and branch model | 🚧 Proposal, scope approved with adjustments |
+| 01 | `target-routing/01-diagnosis` | Short diagnosis of reusable files and gaps: [01-DIAGNOSIS.md](01-DIAGNOSIS.md) | ✅ Done |
 
 ## Base
 
