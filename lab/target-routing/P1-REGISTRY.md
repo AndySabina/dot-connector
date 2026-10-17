@@ -1,8 +1,9 @@
-# 02 — Registry and resolution
+# Phase 1 — Registry and resolution
 
-Branch: `target-routing/02-registry-resolution`, created from
-`target-routing/tracker`. **Status: planned, implementation on hold.**
-This document is a proposal; no code in this branch is implemented yet.
+Phase branch: `target-routing/p1-registry` (PR targets
+`target-routing/tracker`). **Status: planned, implementation on hold.**
+This document is a proposal; no code in this phase is implemented yet. See
+[PLAN.md](PLAN.md) for the full chain.
 
 ## What this is
 
@@ -99,14 +100,17 @@ Registry validation fails with `REGISTRY_INVALID`, `REGISTRY_DUPLICATE_ID`,
 `REGISTRY_UNKNOWN_MACHINE`, `REGISTRY_TUNNEL_MACHINE_MISMATCH` or
 `REGISTRY_INVALID_ROOT`.
 
-## Tasks
+## Child PRs
 
-1. Tests first with fictional data (`lab/target-routing/resolver.test.mjs`).
-2. Implement `lab/target-routing/resolver.mjs` with no dependencies, no
-   filesystem, network or transport.
-3. Run the tests and record the results here.
-4. QA: confirm the package build and release check are unchanged and that no
-   file of this folder is distributed.
+| Child | Branch | Targets | Content | Est. |
+|---|---|---|---|---|
+| p1a | `target-routing/p1a-registry-model` | `p1-registry` | `validateRegistry`, registry reason codes, registry acceptance checks | ~280 |
+| p1b | `target-routing/p1b-target-resolution` | `p1a-registry-model` | `resolveTarget`, decision shape, resolution reason codes and acceptance checks | ~330 |
+
+Each child follows the workflow in [PLAN.md](PLAN.md): document, tests first
+with fictional data (`lab/target-routing/*.test.mjs`), pure implementation with
+no dependencies, filesystem, network or transport, QA with evidence, and
+results recorded here.
 
 ## Acceptance checks
 
