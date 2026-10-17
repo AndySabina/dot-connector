@@ -97,7 +97,7 @@ most 400 changed lines each. Full plan, phases and workflow:
 |---|---|---|---|
 | — | `target-routing/tracker` | Feature tracker, scope and plan | 🚧 Proposal, scope approved with adjustments |
 | 0 | (in tracker) | Foundation and short diagnosis: [01-DIAGNOSIS.md](01-DIAGNOSIS.md) | ✅ Done |
-| 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b) | ⏸️ Planned, implementation on hold |
+| 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b): `P1-REGISTRY.md` on its branch | 🚧 Children complete; awaiting review |
 | 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b) | ⏳ Planned |
 | 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ⏳ Planned |
 | 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ⏳ Planned |
