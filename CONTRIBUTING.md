@@ -19,12 +19,19 @@ node --version
 npm --version
 python3 --version
 tmux -V
+node scripts/check-node.mjs
 npm ci --ignore-scripts --no-audit --no-fund
 ```
 
+Node 22.x is required, not just validated. The runtime refuses other Node majors
+and the suite fails on them, so run `scripts/check-node.mjs` first: it exits 1
+with `NODE_22_REQUIRED` on any other major, and `npm ci` then also warns
+`EBADENGINE`. If your default Node is another major, put an existing Node 22
+runtime first in PATH for this shell only; do not change global defaults.
+
 Validated toolchain: Node 22.23.3, npm 10.9.9, Python 3.12.3, tmux 3.4 on Linux/WSL.
-Locked dependencies: MCP SDK 1.27.1, xterm 6.0.0, Zod 3.25.76. Other versions may
-work but must be reported. Native tests require existing /usr/bin/tmux and Python.
+Locked dependencies: MCP SDK 1.27.1, xterm 6.0.0, Zod 3.25.76. Other Python, npm
+or tmux versions may work but must be reported. Native tests require existing /usr/bin/tmux and Python.
 Do not install system packages, modify profiles or permissions, or disable browser
 sandboxing to make a test pass; report the missing prerequisite instead.
 
