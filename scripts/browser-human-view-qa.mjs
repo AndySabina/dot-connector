@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {startHumanView} from './human-view-qa-helper.mjs';
+import {startHumanView,createDiagnostics,closeEach} from './human-view-qa-helper.mjs';
 if(!process.env.PLAYWRIGHT_MODULE||!process.env.HUMAN_VIEW_QA_OUTPUT)throw Error('EXPLICIT_QA_PATHS_REQUIRED');
 const {chromium}=await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)));
 const out=resolve(process.env.HUMAN_VIEW_QA_OUTPUT);await mkdir(out,{recursive:true});
-let browser,context,fixture,page;const results=[],errors=[],requests=[],responses=[];
+let browser,context,fixture,page,failed=false;const results=[],errors=[],requests=[],responses=[];
+// Owned here so diagnostics.json exists even when startup fails.
+const diagnostics=createDiagnostics();
 try{
- fixture=await startHumanView();
+ fixture=await startHumanView({diagnostics});
  browser=await chromium.launch({headless:true,channel:'chromium',chromiumSandbox:true,timeout:15000});
  context=await browser.newContext({viewport:{width:1100,height:800},serviceWorkers:'block'});
  const origin=new URL(fixture.url).origin;
@@ -75,10 +77,15 @@ try{
  assert.equal(await page.locator('.xterm').count(),0);results.push('closing the owned source invalidates the live reader and disposes its renderer');
  assert.deepEqual(errors,[]);
  await writeFile(out+'/result.json',JSON.stringify({status:'passed',results,browser:browser.version(),sandbox:true,headless:true,credentials:'none',network:'only the test-owned loopback server',errors},null,2)+'\n');
-}catch(error){await writeFile(out+'/failure.json',JSON.stringify({error:error.message,phase:error.phase??null,diagnostics:fixture?.diagnostics?.()??null,errors,responses,cliError:fixture?.cli.err(),runtimeError:fixture?.runtimeError(),status:await page?.locator('#status').textContent().catch(()=>null)},null,2));throw error;}finally{
- await context?.close();await browser?.close();let cleanup;
+}catch(error){failed=true;
+ // failure.json is local evidence: it keeps raw stderr and response bodies; do not publish it as is.
+ await writeFile(out+'/failure.json',JSON.stringify({error:error.message,phase:error.phase??null,diagnostics:diagnostics.snapshot(),startupCleanupErrors:(error.cleanupErrors??[]).map(({resource,code})=>({resource,code})),errors,responses,cliError:fixture?.cli.err(),runtimeError:fixture?.runtimeError(),status:await page?.locator('#status').textContent().catch(()=>null)},null,2));throw error;}finally{
+ // Every resource is attempted; the primary error, if any, stays the one thrown.
+ let cleanup;const cleanupErrors=await closeEach([['context',()=>context?.close()],['browser',()=>browser?.close()],['fixture',async()=>{cleanup=await fixture?.close();}]],diagnostics);
  // Written after cleanup, even if it fails, so process exits (close cause) are included; bounded, no raw output.
- try{cleanup=await fixture?.close();}finally{if(fixture)await writeFile(out+'/diagnostics.json',JSON.stringify(fixture.diagnostics(),null,2)+'\n');}
- await writeFile(out+'/cleanup.json',JSON.stringify({contextClosed:true,browserClosed:true,...cleanup})+'\n');
+ await writeFile(out+'/diagnostics.json',JSON.stringify(diagnostics.snapshot(),null,2)+'\n');
+ const failedResources=new Set(cleanupErrors.map(e=>e.resource));
+ await writeFile(out+'/cleanup.json',JSON.stringify({contextClosed:context?!failedResources.has('context'):null,browserClosed:browser?!failedResources.has('browser'):null,...cleanup,cleanupErrors:cleanupErrors.flatMap(({resource,code,error})=>[{resource,code},...(error?.cleanupErrors??[]).map(e=>({resource:resource+':'+e.resource,code:e.code}))])})+'\n');
+ if(cleanupErrors.length&&!failed)throw Object.assign(Error('OWNED_CLEANUP_FAILED'),{cleanupErrors});
 }
 console.log(JSON.stringify({status:'passed',results}));

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDiagnostics,until,startHumanView} from '../scripts/human-view-qa-helper.mjs';
+import {createDiagnostics,until,startHumanView,closeEach} from '../scripts/human-view-qa-helper.mjs';
 const native={skip:process.platform!=='linux'||process.env.DOT_TMUX_LAB_TEST!=='1',timeout:30000};
 
 test('until records its phase with timings and keeps OWNED_VIEW_TIMEOUT on expiry',async()=>{
@@ -63,6 +63,46 @@ test('diagnostics stay bounded and count what they drop',()=>{
  const snapshot=diagnostics.snapshot();
  assert.equal(snapshot.entries.length,200);assert.equal(snapshot.limit,200);assert.equal(snapshot.dropped,300);
  assert.ok(JSON.stringify(snapshot).length<20000);
+});
+
+// Synthetic stand-ins that stop at a given startup phase and exit 0 once stdin ends.
+const idle='process.stdin.resume();process.stdin.on("end",()=>process.exit(0));';
+const readyRuntime=['-e','console.error(JSON.stringify({event:"ready",humanSocket:"SYNTH_SOCKET"}));'+idle];
+const stalls={
+ 'runtime-ready':{runtime:['-e',idle]},
+ 'view-url':{runtime:readyRuntime,cli:()=>['-e',idle]},
+ 'cli-ready':{runtime:readyRuntime,cli:()=>['-e','console.log("Read-only browser view: http://127.0.0.1:1/");'+idle]}
+};
+
+test('startup failures keep the caller collector, the expired phase and cleanup errors apart',{timeout:30000},async()=>{
+ await Promise.all(Object.entries(stalls).map(async([phase,commands])=>{
+  const diagnostics=createDiagnostics();
+  const error=await startHumanView({diagnostics,commands}).then(()=>null,e=>e);
+  assert.equal(error?.message,'OWNED_VIEW_TIMEOUT',phase);assert.equal(error.phase,phase);
+  const {entries}=diagnostics.snapshot();
+  assert.deepEqual(entries.filter(e=>e.phase===phase).map(e=>e.state),['wait','expired'],phase);
+  assert.deepEqual(error.diagnostics(),diagnostics.snapshot(),phase);
+  // No closed event from the stand-in runtime: cleanup fails, reported separately from the primary error.
+  assert.deepEqual(error.cleanupErrors.map(({resource,code})=>[resource,code]),[['runtime-closed','ERR_ASSERTION'],['fixtures','OWNED_FIXTURES_UNVERIFIED']],phase);
+  assert.deepEqual(entries.filter(e=>e.kind==='cleanup').map(({resource,code})=>[resource,code]),[['runtime-closed','ERR_ASSERTION'],['fixtures','OWNED_FIXTURES_UNVERIFIED']],phase);
+  assert.deepEqual(entries.filter(e=>e.kind==='exit').map(e=>[e.source,e.code,e.signal]).sort(),phase==='runtime-ready'?[['runtime',0,null]]:[['cli',0,null],['runtime',0,null]],phase);
+  assert.ok(!JSON.stringify(entries).includes('SYNTH_SOCKET'),phase);
+ }));
+});
+
+test('closeEach attempts every resource and keeps each failure with a sanitized code',async()=>{
+ const diagnostics=createDiagnostics(),ran=[];
+ const errors=await closeEach([
+  ['first',async()=>{ran.push('first');throw Error('SYNTH raw stderr /home/someone');}],
+  ['second',()=>{ran.push('second');}],
+  ['third',async()=>{ran.push('third');throw Error('OWNED_EXIT_UNVERIFIED');}]
+ ],diagnostics);
+ assert.deepEqual(ran,['first','second','third']);
+ assert.deepEqual(errors.map(({resource,code})=>[resource,code]),[['first','CLEANUP_FAILED'],['third','OWNED_EXIT_UNVERIFIED']]);
+ assert.equal(errors[0].error.message,'SYNTH raw stderr /home/someone','the original error stays available to the caller');
+ const text=JSON.stringify(diagnostics.snapshot());
+ assert.ok(!text.includes('SYNTH')&&!text.includes('/home'));
+ assert.deepEqual(await closeEach([['ok',()=>{}]],diagnostics),[]);
 });
 
 test('a real synthetic human view exposes phases and verified exits without raw content',native,async()=>{
