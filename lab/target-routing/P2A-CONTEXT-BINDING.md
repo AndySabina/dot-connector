@@ -42,6 +42,14 @@ result must prove that it claims the context that is current now.
 - **Result envelope**: exactly `{operationId, binding, data}`. `data` is
   returned untouched and stays untrusted data.
 - Contexts are recognized only when produced by `createSessionContext`.
+- **Snapshot rule**: target, session, result and result binding are untrusted.
+  Each is first copied into a shallow snapshot, and only the snapshot is
+  validated and used. A snapshot exists only for a plain object (prototype
+  `Object.prototype` or `null`, not an array); its own keys and each property
+  descriptor are read once, and getters never run. A symbol key, an accessor,
+  a non-enumerable property or any thrown proxy trap makes the input invalid.
+  The accepted `data` is taken from the result snapshot, so an accessor `data`
+  makes the result invalid; the value itself is returned untouched.
 
 Invalid inputs to `createSessionContext` and `bindRequest` throw `Error(code)`.
 `checkResult` never throws; it returns a frozen verdict
@@ -72,6 +80,12 @@ this order and the first failure wins:
 - A result from an earlier session or incarnation is rejected.
 - A result from an older configuration version is rejected.
 - A result with extra or missing fields is rejected.
+- A result with a getter on `operationId`, `data` or a binding field, a proxy
+  result with a throwing trap and a revoked proxy result are rejected as
+  `RESULT_INVALID` without throwing and without running any getter.
+- A target or session whose fields would change between reads, a throwing
+  proxy, a symbol key, a non-enumerable property or a non-plain prototype is
+  rejected as `CONTEXT_INVALID`, never with the trap error.
 
 ## Limits
 
@@ -95,3 +109,17 @@ Node 22.23.3, local, fictional data only.
 - Not distributed: `dist/build-manifest.json` has no `target-routing` entry and
   `npm pack --dry-run` lists no `lab/` file.
 - No file under `src/`, `scripts/`, `test/` or `docs/` changed.
+
+Review round 2 (Judgment Day). JD-B-006: `checkResult` could throw on a
+hostile result. JD-B-007: `createSessionContext` read target and session
+fields again after validation. Three tests were added first. RED, before
+changing `context.mjs`: 12 tests, 9 pass, 3 fail. `hostile results are
+rejected as invalid without throwing or running getters` returned `ACCEPTED`
+for a result with an `operationId` getter (a proxy result with a throwing
+`ownKeys` trap threw `TRAP`). `target and session fields are read once and
+cannot change after validation` and `symbol keys and non-enumerable properties
+make a target or session invalid` failed with `Missing expected exception`.
+GREEN, after adding the snapshot rule:
+`node --test lab/target-routing/context.test.mjs` — 12 tests, 12 pass. Lab
+tests on this branch — 29 tests, 29 pass. `npm run build` exit 0;
+`npm run check:release` exit 0.

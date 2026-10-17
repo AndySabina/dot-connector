@@ -82,3 +82,59 @@ test('malformed results and unverified contexts are rejected', () => {
   assert.equal(checkResult(context, null).reason, 'RESULT_INVALID');
   assert.equal(checkResult({...context}, valid).reason, 'CONTEXT_UNVERIFIED');
 });
+
+const counted = (object, key, values) => {
+  const calls = {count: 0};
+  Object.defineProperty(object, key, {enumerable: true, configurable: true,
+    get: () => values[Math.min(calls.count++, values.length - 1)]});
+  return calls;
+};
+const throwingProxy = () => new Proxy({}, {ownKeys: () => { throw Error('TRAP'); },
+  getPrototypeOf: () => { throw Error('TRAP'); }, get: () => { throw Error('TRAP'); }});
+const revokedProxy = () => { const {proxy, revoke} = Proxy.revocable({}, {}); revoke(); return proxy; };
+const invalidResult = (context, result) => {
+  const verdict = checkResult(context, result);
+  assert.deepEqual(verdict, {accepted: false, reason: 'RESULT_INVALID', operationId: null});
+  assert.ok(Object.isFrozen(verdict));
+};
+
+test('hostile results are rejected as invalid without throwing or running getters', () => {
+  const context = current();
+  const withOperation = resultFor(context);
+  const operationCalls = counted(withOperation, 'operationId', ['op-1']);
+  invalidResult(context, withOperation);
+  const withData = resultFor(context);
+  const dataCalls = counted(withData, 'data', ['listing']);
+  invalidResult(context, withData);
+  const withBinding = resultFor(context);
+  withBinding.binding = {...withBinding.binding};
+  const bindingCalls = counted(withBinding.binding, 'incarnation', ['11111111-2222-4333-8444-555555555555']);
+  invalidResult(context, withBinding);
+  assert.deepEqual([operationCalls.count, dataCalls.count, bindingCalls.count], [0, 0, 0]);
+  invalidResult(context, throwingProxy());
+  invalidResult(context, revokedProxy());
+  invalidResult(context, {...resultFor(context), binding: throwingProxy()});
+  invalidResult(context, JSON.parse(`{"__proto__": {}, ${JSON.stringify(resultFor(context)).slice(1)}`));
+});
+
+test('target and session fields are read once and cannot change after validation', () => {
+  const target = shopAlpha();
+  const targetCalls = counted(target, 'machineId', ['m-alpha', {}]);
+  assert.throws(() => createSessionContext(target, session()), {message: 'CONTEXT_INVALID'});
+  const owner = session();
+  const sessionCalls = counted(owner, 'incarnation', ['11111111-2222-4333-8444-555555555555', 'not-a-uuid']);
+  assert.throws(() => createSessionContext(shopAlpha(), owner), {message: 'CONTEXT_INVALID'});
+  assert.deepEqual([targetCalls.count, sessionCalls.count], [0, 0]);
+  assert.throws(() => createSessionContext(throwingProxy(), session()), {message: 'CONTEXT_INVALID'});
+  assert.throws(() => createSessionContext(shopAlpha(), revokedProxy()), {message: 'CONTEXT_INVALID'});
+});
+
+test('symbol keys and non-enumerable properties make a target or session invalid', () => {
+  assert.throws(() => createSessionContext({...shopAlpha(), [Symbol('extra')]: 1}, session()), {message: 'CONTEXT_INVALID'});
+  assert.throws(() => createSessionContext(shopAlpha(), {...session(), [Symbol('extra')]: 1}), {message: 'CONTEXT_INVALID'});
+  const hidden = Object.defineProperty(shopAlpha(), 'command', {value: 'ls', enumerable: false});
+  assert.throws(() => createSessionContext(hidden, session()), {message: 'CONTEXT_INVALID'});
+  const hiddenSession = Object.defineProperty(session(), 'principalId', {value: 'u-dot', enumerable: false});
+  assert.throws(() => createSessionContext(shopAlpha(), hiddenSession), {message: 'CONTEXT_INVALID'});
+  assert.throws(() => createSessionContext(Object.assign(Object.create({}), shopAlpha()), session()), {message: 'CONTEXT_INVALID'});
+});
