@@ -31,9 +31,11 @@ walked out of the root.
 
 ## How
 
-- **Root**: a normalized drive path (`C:\work\shop`) or UNC path
-  (`\\server\share\shop`) without a trailing separator, forbidden characters,
-  reserved names or trailing dots or spaces. Anything else → `ROOT_INVALID`.
+- **Root**: a normalized drive path (`C:\work\shop`) without a trailing
+  separator, forbidden characters, reserved names or trailing dots or spaces.
+  UNC roots are not supported: a network share lives on another machine than
+  the one the project declares, and the registry (p1a) rejects them too.
+  Anything else → `ROOT_INVALID`.
 - **Input**: a non-empty string of at most 1024 characters without control
   characters. `/` is accepted as a separator and normalized to `\`.
 - Relative input is joined to the root, never to a current directory.
@@ -62,8 +64,8 @@ walked out of the root.
 - Absolute paths inside the root with different case are accepted and returned
   with the declared root.
 - Escapes are rejected: `..` above the root, a sibling with a shared prefix,
-  another drive, a UNC path for a drive root, another UNC share.
-- UNC roots accept their own share regardless of case.
+  another drive, a UNC path for a drive root.
+- UNC roots are rejected as `ROOT_INVALID` (review fix, PR #9).
 - Device namespaces, drive relative and root relative forms are rejected.
 - Data streams, forbidden characters, reserved names and trailing dots or spaces
   are rejected.
@@ -84,6 +86,10 @@ Node 22.23.3, local, fictional data only.
 - RED: before `paths.mjs` existed, `paths.test.mjs` failed with
   `ERR_MODULE_NOT_FOUND`.
 - GREEN: `node --test lab/target-routing/paths.test.mjs` — 7 tests, 7 pass.
+- Review fix (dot, PR #9): the first version accepted UNC roots, which the
+  registry never accepts. The UNC test was rewritten to require `ROOT_INVALID`,
+  failed against the first version (RED) and passes after restricting roots to
+  drive paths. Still 7 tests, 7 pass.
 - Extra manual probes (not committed as tests) behaved as specified: climbing
   out and into a sibling is rejected, climbing out and back into the root is
   accepted, `\\?\UNC\...` is a device namespace, a reserved name in the middle
