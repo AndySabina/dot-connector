@@ -101,7 +101,7 @@ most 400 changed lines each. Full plan, phases and workflow:
 | 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b) | ⏳ Planned |
 | 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ⏳ Planned |
 | 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ⏳ Planned |
-| 5 | `target-routing/p5-reports` | Results, limits and integration proposal (p5a, p5b) | ⏳ Planned |
+| 5 | `target-routing/p5-reports` | Results, limits and integration proposal (p5a, p5b): `P5-REPORTS.md` on its branch | 🚧 In progress |
 
 ## Base
 
