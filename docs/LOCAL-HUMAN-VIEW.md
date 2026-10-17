@@ -67,9 +67,14 @@ never stores raw output, pane content, paths, URLs or socket names.
 
 Cleanup attempts every resource (browser context, browser, CLI, runtime, runtime
 `closed` verification, fixtures) even after one fails; `cleanup.json` lists the
-failed steps by code. The original error stays the one reported, and cleanup
-failures are kept beside it, never in its place. Timeouts and the absence of
-retries are unchanged.
+failed steps by code (codes longer than 64 characters become `CLEANUP_FAILED`).
+The retained runtime state (socket, ledger) is deleted only when the runtime's
+`closed` event reports `verified: true`; otherwise it is kept for inspection and
+the `fixtures` step reports `OWNED_FIXTURES_UNVERIFIED`. The original error stays
+the one reported, and cleanup failures are kept beside it, never in its place.
+A failed write of `failure.json`, `diagnostics.json` or `cleanup.json` is
+printed to stderr by artifact name and code and does not replace that error.
+Timeouts and the absence of retries are unchanged.
 
 The artifacts differ in what they may contain. `diagnostics.json` and
 `cleanup.json` are sanitized as described above. `failure.json` is not: besides

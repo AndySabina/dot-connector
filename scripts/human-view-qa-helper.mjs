@@ -1,6 +1,6 @@
 // Only fresh synthetic processes created here; never discovers/adopts a terminal.
 import {spawn} from 'node:child_process';
-import {rm} from 'node:fs/promises';
+import {rm,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
@@ -43,13 +43,17 @@ export async function until(fn,{phase='unlabeled',diagnostics}={}){
  for(let i=0;i<240;i++){const value=await fn();if(value){diagnostics?.phase(phase,'ok');return value;}await new Promise(r=>setTimeout(r,25));}
  diagnostics?.phase(phase,'expired');throw Object.assign(Error('OWNED_VIEW_TIMEOUT'),{phase});
 }
-// Error messages may carry raw stderr; only an UPPER_CASE message or error code is recorded.
-const cleanupCode=error=>[error?.message,error?.code].find(c=>typeof c==='string'&&/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(c))??'CLEANUP_FAILED';
+// Error messages may carry raw stderr; only an UPPER_CASE message or error code of at most 64 characters is recorded.
+const cleanupCode=(error,fallback='CLEANUP_FAILED')=>[error?.message,error?.code].find(c=>typeof c==='string'&&c.length<=64&&/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(c))??fallback;
 // Attempts every step even after a failure; no retries. Returns the failures, never throws.
 export async function closeEach(steps,diagnostics){
  const errors=[];
  for(const [resource,fn] of steps){try{await fn();}catch(error){const code=cleanupCode(error);errors.push({resource,code,error});diagnostics?.cleanup(resource,code);}}
  return errors;
+}
+// Artifact writes must never replace the run's primary error: failures are collected by code.
+export async function writeArtifact(file,value,failures){
+ try{await writeFile(file,JSON.stringify(value,null,2)+'\n');}catch(error){failures.push({artifact:path.basename(file),code:cleanupCode(error,'ARTIFACT_WRITE_FAILED'),error});}
 }
 function launch(args,source,diagnostics){
  const child=spawn(process.execPath,args,{env:{PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:tmpdir()},stdio:['pipe','pipe','pipe']});
@@ -72,7 +76,8 @@ export async function startHumanView({diagnostics=createDiagnostics(),commands={
    ['runtime',async()=>{runtime.child.stdin.end();assert.deepEqual(await bounded(runtime.exit),{code:0,signal:null},runtime.err());}],
    ['runtime-closed',()=>{event=events().find(e=>e.event==='closed');assert.equal(event?.result.verified,true,runtime.err());}],
    ['fixtures',async()=>{
-    if(typeof event?.retainedState!=='string')throw Error('OWNED_FIXTURES_UNVERIFIED');
+    // Retained state (socket, ledger) is deleted only after a verified close; otherwise it is kept for inspection.
+    if(event?.result?.verified!==true||typeof event.retainedState!=='string')throw Error('OWNED_FIXTURES_UNVERIFIED');
     assert.equal(path.dirname(event.retainedState),tmpdir());assert(path.basename(event.retainedState).startsWith('dot-tmux-session-'));
     await rm(event.retainedState,{recursive:true,force:true});
    }]

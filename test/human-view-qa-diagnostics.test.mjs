@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDiagnostics,until,startHumanView,closeEach} from '../scripts/human-view-qa-helper.mjs';
+import {mkdtemp,writeFile,readFile,rm,mkdir} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {createDiagnostics,until,startHumanView,closeEach,writeArtifact} from '../scripts/human-view-qa-helper.mjs';
 const native={skip:process.platform!=='linux'||process.env.DOT_TMUX_LAB_TEST!=='1',timeout:30000};
 
 test('until records its phase with timings and keeps OWNED_VIEW_TIMEOUT on expiry',async()=>{
@@ -90,15 +93,56 @@ test('startup failures keep the caller collector, the expired phase and cleanup 
  }));
 });
 
+// Stand-ins that start fully and, once stdin ends, report the given verification for a retained directory.
+const closing=verified=>({
+ runtime:['-e','console.error(JSON.stringify({event:"ready",humanSocket:"SYNTH_SOCKET"}));process.stdin.resume();process.stdin.on("end",()=>{console.error(JSON.stringify({event:"closed",result:{verified:'+verified+'},retainedState:process.argv[1]}));process.exit(0);});'],
+ cli:()=>['-e','console.log("Read-only browser view: http://127.0.0.1:1/");console.log("Local cooperative human.");'+idle]
+});
+
+test('retained state is removed only after a verified close',async()=>{
+ for(const verified of [false,true]){
+  const dir=await mkdtemp(path.join(tmpdir(),'dot-tmux-session-'));await writeFile(path.join(dir,'ledger'),'SYNTH_LEDGER');
+  try{
+   const commands=closing(verified);commands.runtime=[...commands.runtime,dir];
+   const diagnostics=createDiagnostics(),fixture=await startHumanView({diagnostics,commands});
+   const result=await fixture.close().then(value=>({value}),error=>({error}));
+   if(verified){
+    assert.deepEqual(result.value,{runtimeExit:0,cliExit:0,verified:true,fixturesRemoved:true});
+    assert.equal(await readFile(path.join(dir,'ledger'),'utf8').catch(e=>e.code),'ENOENT');
+   }else{
+    assert.equal(result.error?.message,'OWNED_CLEANUP_FAILED');
+    // Independent steps still ran (cli, runtime exits verified); only the deletion is withheld.
+    assert.deepEqual(result.error.cleanupErrors.map(({resource,code})=>[resource,code]),[['runtime-closed','ERR_ASSERTION'],['fixtures','OWNED_FIXTURES_UNVERIFIED']]);
+    assert.deepEqual(diagnostics.snapshot().entries.filter(e=>e.kind==='exit').map(e=>[e.source,e.code]).sort(),[['cli',0],['runtime',0]]);
+    assert.equal(await readFile(path.join(dir,'ledger'),'utf8'),'SYNTH_LEDGER','unverified retained state survives');
+   }
+  }finally{await rm(dir,{recursive:true,force:true});}
+ }
+});
+
+test('writeArtifact reports a failed write by code instead of throwing',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'qa-artifacts-')),failures=[];
+ try{
+  await mkdir(path.join(dir,'blocked.json'));
+  await writeArtifact(path.join(dir,'ok.json'),{a:1},failures);
+  await writeArtifact(path.join(dir,'blocked.json'),{a:2},failures);
+  assert.deepEqual(JSON.parse(await readFile(path.join(dir,'ok.json'),'utf8')),{a:1});
+  assert.deepEqual(failures.map(({artifact,code})=>[artifact,code]),[['blocked.json','ARTIFACT_WRITE_FAILED']]);
+  assert.ok(!JSON.stringify(failures.map(({artifact,code})=>({artifact,code}))).includes(dir));
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
 test('closeEach attempts every resource and keeps each failure with a sanitized code',async()=>{
  const diagnostics=createDiagnostics(),ran=[];
  const errors=await closeEach([
   ['first',async()=>{ran.push('first');throw Error('SYNTH raw stderr /home/someone');}],
   ['second',()=>{ran.push('second');}],
-  ['third',async()=>{ran.push('third');throw Error('OWNED_EXIT_UNVERIFIED');}]
+  ['third',async()=>{ran.push('third');throw Error('OWNED_EXIT_UNVERIFIED');}],
+  ['fourth',async()=>{ran.push('fourth');throw Error('A_'+'B'.repeat(63));}]
  ],diagnostics);
- assert.deepEqual(ran,['first','second','third']);
- assert.deepEqual(errors.map(({resource,code})=>[resource,code]),[['first','CLEANUP_FAILED'],['third','OWNED_EXIT_UNVERIFIED']]);
+ assert.deepEqual(ran,['first','second','third','fourth']);
+ // Codes longer than 64 characters are not recorded as codes.
+ assert.deepEqual(errors.map(({resource,code})=>[resource,code]),[['first','CLEANUP_FAILED'],['third','OWNED_EXIT_UNVERIFIED'],['fourth','CLEANUP_FAILED']]);
  assert.equal(errors[0].error.message,'SYNTH raw stderr /home/someone','the original error stays available to the caller');
  const text=JSON.stringify(diagnostics.snapshot());
  assert.ok(!text.includes('SYNTH')&&!text.includes('/home'));
