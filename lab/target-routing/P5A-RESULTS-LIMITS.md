@@ -13,7 +13,7 @@ scope; none required an outside review.
 | Child | Commit | Lines | Module | Tests | Assessment |
 |---|---|---|---|---|---|
 | p1a registry model | `83858ce` | 292 | `registry.mjs` | 7 | medium, not due |
-| p1b target resolution | `841e23c` | 284 | `resolver.mjs` | 11 | medium, not due |
+| p1b target resolution | `841e23c`, `2b5bd3f` | 288 | `resolver.mjs` | 11 | medium, not due |
 | p2a context binding | `7800755` | 247 | `context.mjs` | 9 | medium, not due |
 | p2b project switch | `2bbe000` | 298 | `switch.mjs` | 8 | medium, not due |
 | p3a Windows paths | `a3008a6` | 220 | `paths.mjs` | 7 | medium, not due |
