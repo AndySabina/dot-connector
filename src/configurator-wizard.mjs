@@ -9,7 +9,7 @@ export async function runWizard({ask,write}) {
       if(raw===null||raw===undefined||raw.trim()===':cancel')throw Error('CONFIGURATOR_CANCELLED');
       if(typeof raw!=='string'||Buffer.byteLength(raw)>1024)throw Error('CONFIGURATOR_INPUT_LIMIT');
       const answer=raw.trim();
-      if(!/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/.test(raw)&&valid(answer))return answer;
+      if(!/[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(raw)&&valid(answer))return answer;
       write('Invalid answer. Choose an explicit listed option or a normalized absolute path.');
     }
     throw Error('CONFIGURATOR_INVALID_ANSWER');

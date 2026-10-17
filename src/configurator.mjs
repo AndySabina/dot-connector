@@ -3,7 +3,7 @@ import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 const label=z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
-const safePath=z.string().min(1).max(512).refine(s=>!/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/.test(s));
+const safePath=z.string().min(1).max(512).refine(s=>!/[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(s));
 const permissions=z.object({read_files:z.boolean().default(false),modify_files:z.boolean().default(false),execute:z.boolean().default(false),read_output:z.boolean().default(false)}).strict().default({});
 const folder=z.object({platform:z.enum(['linux','windows']),path:safePath}).strict().refine(f=>{
  const api=f.platform==='windows'?path.win32:path.posix;

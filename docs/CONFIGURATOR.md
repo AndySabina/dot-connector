@@ -2,7 +2,7 @@
 
 Implemented CLI: `node scripts/configure.mjs detect|plan|validate|review|status|wizard`. This standalone entrypoint deliberately bypasses the operational CLI, configuration, process, transport and logging paths. It never applies configuration, starts processes, creates credentials or approves a request. The operational `dot-connector` CLI is unchanged.
 
-All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. Errors never echo invalid input, file contents or stack traces. Only explicit regular files are read, at most 32768 bytes, without symlink following. The wizard reads explicit TTY answers only; JSON commands never consume stdin. No environment inventory, shell command or config discovery is implemented.
+All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. Errors never echo invalid input, file contents or stack traces. JSON commands read only explicitly named regular files, at most 32768 bytes. A final symlink is rejected; symlinks in parent directories are not an isolation boundary. The wizard reads explicit TTY answers only; JSON commands never consume stdin. No environment inventory, shell command or config discovery is implemented.
 
 Actual commands:
 
@@ -63,7 +63,7 @@ overlapping directories and aliases may still refer to the same resources.
 
 There are no default answers. Each prompt permits three invalid attempts, at most
 1024 bytes per answer and 32768 bytes of total TTY input. No input history is saved.
-Type :cancel at any prompt, Ctrl+C, or send EOF to cancel with a nonzero result and
+Type :cancel at any prompt, Ctrl+C, or Ctrl+D at an empty prompt to cancel with a nonzero result and
 no plan. Do not enter credentials; the wizard never requests them. Errors do not
 echo rejected answers (a real terminal can still display what the person types).
 
@@ -75,5 +75,40 @@ it does not accept any pending action. Nothing is written or activated by the CL
 stdin and stderr must both be TTYs. Otherwise CONFIGURATOR_TTY_REQUIRED returns a
 JSON error with instructions to use plan --file /absolute/request.json --json.
 The five JSON commands remain available to agents, including detect and status.
-The wizard accepts no flags. Tests use scripted questions and simulated streams;
-they do not open a real terminal or change an active session.
+The wizard accepts no flags. Unit tests use scripted questions and simulated
+streams. The opt-in Linux PTY tests create their own new terminal and Node child;
+they never adopt an existing terminal or change an active runtime.
+
+## PTY review coverage
+
+With existing Python 3 and Linux, run:
+
+```sh
+DOT_TMUX_LAB_TEST=1 node --test --test-concurrency=1 --test-timeout=30000 test/configurator-wizard*.test.mjs test/configurator.test.mjs
+```
+
+The laboratory gives the new process a private HOME, TMPDIR and working directory,
+with stdin/stderr on a newly allocated PTY and stdout on a separate pipe. It checks
+the valid export, Ctrl+C, Ctrl+D at an empty prompt, invalid-answer retries, exact
+EXPORT, and 32-column by 8-row interaction. A pasted OSC attempt is not echoed as
+an active OSC command; direct control/bidi strings are rejected by the shared core.
+The filter includes ALM, LRM, RLM and Unicode line/paragraph separators, which could
+otherwise alter the visual reading of a folder in the review.
+Normal readline cursor-control output on stderr is expected; stdout must remain
+one parseable JSON line with no escape controls or prompt text.
+
+Only synthetic files are used. Inotify watches on a synthetic file and declared
+folder show no open/read events during the wizard process. Before/after inventories
+and marker content remain unchanged. This is evidence for those watched fixtures,
+not a syscall audit of every file the Node runtime reads. Static review confirms
+the wizard path calls no project-file read, file writer, subprocess or network API.
+
+A declared symlink folder remains unverified and unavailable; the wizard does not
+resolve it. The JSON-file reader separately rejects a final symlink but accepts an
+explicit regular file through a symlinked parent directory. It is not a sandbox
+and must not be used to certify project privacy or path containment.
+
+PTY tests validate the actual line editor and protocol at narrow dimensions, not
+pixel rendering, font behavior, accessibility or Windows ConPTY. Review text can
+exceed a short terminal's height and remains in its scrollback; no pager is created.
+No assertion establishes OS isolation, anonymity or permission enforcement.
