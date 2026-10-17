@@ -96,7 +96,7 @@ deterministic digest, detached results, original-file preservation and compositi
 with validate/review/status. Full regression also includes the existing wizard PTY
 tests; profile operations themselves are noninteractive JSON commands.
 
-The interactive wizard does not yet load an existing plan to select/list/duplicate
-profiles. That UI can reuse these operations in a later increment, with an explicit
-review/export step and cancellation that leaves the original untouched. OS isolation,
-structured-query backends and activation remain unavailable.
+The interactive wizard now loads an existing plan with `wizard --file ABSOLUTE_PLAN`,
+lists profiles and uses the same duplication operation. See [wizard usage](CONFIGURATOR.md)
+for explicit review/EXPORT and cancellation. No loaded draft is persisted automatically.
+OS isolation, structured-query backends and activation remain unavailable.

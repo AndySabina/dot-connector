@@ -80,8 +80,17 @@ function emit(command, result) {
 try {
   if (!commands.includes(command)) throw Error('CONFIGURATOR_COMMAND_UNAVAILABLE');
   if (command === 'wizard') {
-    if (args.length) throw Error('CONFIGURATOR_OPTIONS');
-    emit('plan', await interactiveWizard());
+    let existingPlan;
+    if (args.length) {
+      if (args.length !== 2 || args[0] !== '--file' || !args[1] || args[1].startsWith('--')) {
+        throw Error('CONFIGURATOR_OPTIONS');
+      }
+      // Reject noninteractive use before reading the explicitly named plan.
+      if (!process.stdin.isTTY || !process.stderr.isTTY) throw Error('CONFIGURATOR_TTY_REQUIRED');
+      existingPlan = unwrapPlan(await readInput(args[1]));
+      validatePlan(existingPlan);
+    }
+    emit('plan', await interactiveWizard(process.stdin, process.stderr, existingPlan));
   } else {
     const options = parseOptions();
     let input = options.file ? await readInput(options.file) : undefined;
