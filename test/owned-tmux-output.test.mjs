@@ -21,3 +21,15 @@ test('failed optional output cannot prevent a new human from using legacy contro
  let next=0;const disconnected=[],session={identity,connect:()=>String(++next),disconnect:id=>disconnected.push(id),orderedOutput:{connect:role=>{if(role==='human')throw Error('OUTPUT_CLOSED');return {close(){}};}}};
  const bridge=new SnapshotBridge(session),human=bridge.openHuman();assert.equal(bridge.human,human);assert.equal(bridge.orderedHuman,null);bridge.disconnectHuman(human);assert.deepEqual(disconnected,[human]);assert.equal(bridge.human,null);
 });
+
+test('window rename metadata never fences or enters the owned pane output',async()=>{
+ const f=await fixture(),reader=f.owner.connect('human');
+ try{
+  await reader.read({afterSeq:0,offset:0});
+  f.child.stdout.write('%window-renamed @0 harmless untrusted title\n');
+  assert.equal(f.owner.stats().closed,false);
+  assert.equal(f.owner.stats().seq,1);
+  f.child.stdout.write('%output %0 LIVE\n');
+  assert.equal(Buffer.from((await reader.read({afterSeq:1,offset:0})).data,'base64').toString(),'LIVE');
+ }finally{assert.equal(await f.owner.close(),true);}
+});

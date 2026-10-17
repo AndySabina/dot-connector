@@ -30,6 +30,8 @@ export async function createOwnedTmuxOutput({identity,validate,geometry,spawnCon
    const layout=text.split(' ')[2];if(!/^[a-f0-9]+,80x24,0,0,\d+$/.test(layout??''))throw Error('OUTPUT_GEOMETRY_CHANGED');return;
   }
   if(/^%(?:begin|end) \d+ \d+ \d+$/.test(text)||/^%window-add @\d+$/.test(text)||text==='%sessions-changed')return;
+  // Window titles are untrusted metadata, not pane output or ownership evidence.
+  if(/^%window-renamed @\d+ [^\r\n]*$/.test(text))return;
   if(text.startsWith('%exit'))throw Error('OUTPUT_OWNER_CLOSED');
   throw Error('OUTPUT_CONTROL_UNSUPPORTED');
  };
