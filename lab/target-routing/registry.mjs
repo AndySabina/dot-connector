@@ -38,10 +38,40 @@ function validRoot(pathSpace, root) {
   if (pathSpace === 'windows') {
     const drive = /^[A-Za-z]:\\/.test(root);
     return drive && !/[/<>:"|?*]/.test(root.slice(2)) && path.win32.normalize(root) === root &&
-      (root.length === 3 || !root.endsWith('\\'));
+      (root.length === 3 || !root.endsWith('\\')) && root.slice(3).split('\\').filter(Boolean).every(validSegment);
   }
   return path.posix.isAbsolute(root) && !root.includes('\\') && path.posix.normalize(root) === root &&
     (root === '/' || !root.endsWith('/'));
+}
+
+// Mirrors the segment rule of lab/target-routing/paths.mjs; the phases stay independent.
+const reserved = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])$/i;
+const validSegment = s => !/[. ]$/.test(s) && !reserved.test(s.split('.')[0].replace(/ +$/, ''));
+
+// Views of a root used only to refuse overlaps, never to grant access. A WSL
+// /mnt/<letter>/rest root is also seen as <LETTER>:\rest, and a Windows root as
+// /mnt/<letter>/rest, so '/' and '/mnt' contain every drive of the machine.
+function views(p) {
+  if (p.pathSpace === 'windows') {
+    const rest = p.root.slice(3).split('\\').filter(Boolean);
+    return [{space: 'windows', segments: [p.root[0], ...rest]}, {space: 'wsl', segments: ['mnt', p.root[0].toLowerCase(), ...rest]}];
+  }
+  const segments = p.root.split('/').filter(Boolean);
+  const mounted = segments[0] === 'mnt' && /^[A-Za-z]$/.test(segments[1] ?? '');
+  return [{space: 'wsl', segments}, ...(mounted ? [{space: 'windows', segments: segments.slice(1)}] : [])];
+}
+
+// Conservative: Windows segments match when either case folding makes them equal.
+const same = (space, a, b) => a === b || space === 'windows' && (a.toUpperCase() === b.toUpperCase() || a.toLowerCase() === b.toLowerCase());
+const nested = (space, a, b) => (a.length <= b.length ? a : b).every((s, i) => same(space, s, (a.length <= b.length ? b : a)[i]));
+
+function disjoint(projects) {
+  for (const [i, p] of projects.entries()) for (const q of projects.slice(i + 1)) {
+    if (p.machineId !== q.machineId) continue;
+    for (const v of views(p)) for (const w of views(q)) {
+      if (v.space === w.space && nested(v.space, v.segments, w.segments)) fail('REGISTRY_ROOT_OVERLAP');
+    }
+  }
 }
 
 function unique(keys) {
@@ -76,6 +106,7 @@ export function validateRegistry(document) {
     if (tunnelMachine.get(p.tunnelId) !== p.machineId) fail('REGISTRY_TUNNEL_MACHINE_MISMATCH');
     if (!validRoot(p.pathSpace, p.root)) fail('REGISTRY_INVALID_ROOT');
   }
+  disjoint(projects);
 
   const registry = deepFreeze({schema: 1, version: document.version, machines, tunnels, projects});
   validated.add(registry);
