@@ -6,7 +6,8 @@ Reference code only; not imported by the product and not distributed.
 
 ## What this is
 
-A pure, immutable operation ledger in `lab/target-routing/switch.mjs`, built on
+A pure operation ledger of frozen states with a single current state per ledger
+(p2c) in `lab/target-routing/switch.mjs`, built on
 the session context of p2a:
 
 - `openWorkspace(context)` starts a ledger for one session context.

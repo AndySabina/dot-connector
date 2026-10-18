@@ -63,3 +63,22 @@ test('invalid inputs and roots are rejected', () => {
     assert.equal(reason(bad, 'src'), 'ROOT_INVALID', String(bad));
   }
 });
+
+test('containment compares segments and folds case for ASCII only (review JD-B-002)', () => {
+  // U+0130 lowercases to i + U+0307, which changes the length of the folded string.
+  const dotted = 'C:\\Users\\\u0130smail\\proj';
+  const combining = 'C:\\Users\\i\u0307smail\\proj';
+  assert.deepEqual(resolveWindowsPath(dotted, 'C:\\Users\\i\u0307smail\\proj\\Windows\\x.txt'), {ok: false, reason: 'PATH_OUTSIDE_ROOT'});
+  assert.deepEqual(resolveWindowsPath(combining, 'C:\\Users\\\u0130smail\\proj\\secret.txt'), {ok: false, reason: 'PATH_OUTSIDE_ROOT'});
+  assert.equal(reason('C:\\Users\\ismail\\proj', 'C:\\Users\\\u0130smail\\proj\\secret.txt'), 'PATH_OUTSIDE_ROOT');
+  assert.deepEqual(resolveWindowsPath(dotted, 'C:\\Users\\\u0130smail\\proj\\secret.txt'), {ok: true, path: 'C:\\Users\\\u0130smail\\proj\\secret.txt', relative: 'secret.txt'});
+  assert.deepEqual(resolveWindowsPath(dotted, 'c:\\USERS\\\u0130smail\\PROJ\\src'), {ok: true, path: 'C:\\Users\\\u0130smail\\proj\\src', relative: 'src'});
+});
+
+test('reserved names are detected before the extension after trailing spaces (review JD-B-009)', () => {
+  assert.equal(reason(root, 'nul .txt'), 'PATH_RESERVED_NAME');
+  assert.equal(reason(root, 'CON .log'), 'PATH_RESERVED_NAME');
+  assert.equal(reason(root, 'src\\aux .x'), 'PATH_RESERVED_NAME');
+  assert.equal(reason('C:\\work\\nul .d', 'src'), 'ROOT_INVALID');
+  assert.deepEqual(resolveWindowsPath(root, 'nully .txt'), {ok: true, path: 'C:\\work\\shop\\nully .txt', relative: 'nully .txt'});
+});

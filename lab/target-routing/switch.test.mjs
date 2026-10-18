@@ -107,3 +107,53 @@ test('restarting the same project is a switch and old results become a session m
   assert.deepEqual(previous, [{operationId: 'op-1', status: 'uncertain'}]);
   assert.equal(completeOperation(restarted, resultFor(old, 'op-1')).verdict.reason, 'RESULT_SESSION_MISMATCH');
 });
+
+test('JD-B-001: the pre-switch state is stale and refuses late results and new work', () => {
+  const old = context(shop);
+  let s1 = queueOperation(openWorkspace(old), 'op-1');
+  s1 = queueOperation(markDispatched(s1, 'op-1'), 'op-2');
+  const {state: current, previous} = switchProject(s1, context(blog, 2));
+  assert.deepEqual(previous, [
+    {operationId: 'op-1', status: 'uncertain'},
+    {operationId: 'op-2', status: 'cancelled'}
+  ]);
+  const late = completeOperation(s1, resultFor(old, 'op-1'));
+  assert.deepEqual({...late.verdict}, {accepted: false, reason: 'LEDGER_STALE', operationId: 'op-1'});
+  assert.ok(Object.isFrozen(late.verdict));
+  assert.equal(late.state, s1);
+  assert.throws(() => markDispatched(s1, 'op-2'), {message: 'LEDGER_STALE'});
+  assert.throws(() => queueOperation(s1, 'op-3'), {message: 'LEDGER_STALE'});
+  assert.throws(() => switchProject(s1, context(blog, 3)), {message: 'LEDGER_STALE'});
+  assert.deepEqual(queueOperation(current, 'op-3').operations, [{operationId: 'op-3', status: 'queued'}]);
+});
+
+test('JD-B-001: the same base state cannot be advanced twice, so work is never dispatched twice', () => {
+  const base = openWorkspace(context(shop));
+  const first = markDispatched(queueOperation(base, 'op-9'), 'op-9');
+  assert.throws(() => queueOperation(base, 'op-9'), {message: 'LEDGER_STALE'});
+  assert.deepEqual(first.operations, [{operationId: 'op-9', status: 'dispatched'}]);
+});
+
+test('JD-B-001: a refused result does not advance the lineage and an accepted one does', () => {
+  const ctx = context(shop);
+  const dispatched = markDispatched(queueOperation(openWorkspace(ctx), 'op-1'), 'op-1');
+  const refused = completeOperation(dispatched, resultFor(ctx, 'op-9'));
+  assert.equal(refused.verdict.reason, 'RESULT_UNKNOWN_OPERATION');
+  const invalid = completeOperation(dispatched, {data: 'x'});
+  assert.equal(invalid.verdict.accepted, false);
+  assert.equal(invalid.state, dispatched);
+  const accepted = completeOperation(dispatched, resultFor(ctx, 'op-1'));
+  assert.equal(accepted.verdict.reason, 'ACCEPTED');
+  const stale = completeOperation(dispatched, resultFor(ctx, 'op-1'));
+  assert.deepEqual({...stale.verdict}, {accepted: false, reason: 'LEDGER_STALE', operationId: 'op-1'});
+  assert.equal(stale.state, dispatched);
+  assert.throws(() => queueOperation(dispatched, 'op-2'), {message: 'LEDGER_STALE'});
+  assert.deepEqual(queueOperation(accepted.state, 'op-2').operations.map(o => o.operationId), ['op-1', 'op-2']);
+});
+
+test('JD-B-001: forged state is still invalid, not stale', () => {
+  const state = openWorkspace(context(shop));
+  queueOperation(state, 'op-1');
+  assert.throws(() => queueOperation({...state}, 'op-2'), {message: 'LEDGER_INVALID'});
+  assert.throws(() => completeOperation({...state}, {}), {message: 'LEDGER_INVALID'});
+});
