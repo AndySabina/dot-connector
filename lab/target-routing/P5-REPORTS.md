@@ -19,7 +19,7 @@ limits plainly and lists what the executor and plugin must do.
 
 | Child | Branch | Targets | Content | Est. | Status |
 |---|---|---|---|---|---|
-| p5a | `target-routing/p5a-results-limits` | `p5-reports` | Results per child, requirement-to-test map, combined run, limits | ~200 | 🚧 In progress |
+| p5a | `target-routing/p5a-results-limits` | `p5-reports` | Results per child, requirement-to-test map, combined run, limits | ~200 | ✅ [P5A-RESULTS-LIMITS.md](P5A-RESULTS-LIMITS.md) |
 | p5b | `target-routing/p5b-integration` | `p5a-results-limits` | Integration proposal and requirements for executor and plugin | ~200 | ⏳ Planned |
 
 ## Limits
