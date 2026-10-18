@@ -101,6 +101,58 @@ Totals: 5 implementation phases, 13 planned child PRs.
 
 Final total: 16 child PRs, all within 400 changed lines.
 
+## Harness phases (added by the user's product decision)
+
+The approved scope covered target selection, permissions, context and paths.
+The user then decided to also build the **harness**: in projects that choose
+it, dot can only launch the configured agent CLI in the exact project root and
+then talk to that agent. These phases implement former section C and the full
+section G of SCOPE.md, with the same rules: pure reference code, fictional data,
+no execution, nothing integrated.
+
+Design decisions:
+
+- **Per-project mode.** Each project declares `agent-only` (the harness, the
+  default) or `shell` (the generic observe/write/execute grants of phase 1).
+  The layer imposes nothing; the user chooses per project.
+- **Closed launch order.** Built only from the user's configuration: launch
+  profile (with a terminal multiplexer such as herdr, or a plain terminal),
+  agent catalog entry and the project root. Program and arguments are arrays;
+  no shell string, no interpolation, never text sent by dot. Real CLI flags are
+  user data, not invented here.
+- **Approvals always.** Anything outside the project needs a human decision.
+  Approvals are single-use, bound to project, session and request digest,
+  expire, and never change grants.
+- **Advisory guards.** The prompt guard and the output watch can flag and
+  escalate; they do not prevent anything and are never presented as protection.
+
+```
+target-routing/tracker
+├── target-routing/p6-launch               → tracker
+│   ├── target-routing/p6a-harness-config      → p6-launch
+│   └── target-routing/p6b-launch-order        → p6a-harness-config
+├── target-routing/p7-agent-gate           → tracker
+│   └── target-routing/p7a-operation-gate      → p7-agent-gate
+├── target-routing/p8-approvals            → tracker
+│   ├── target-routing/p8a-approval-ledger     → p8-approvals
+│   ├── target-routing/p8b-prompt-guard        → p8a-approval-ledger
+│   └── target-routing/p8c-output-watch        → p8b-prompt-guard
+└── target-routing/integration-preview     merges phase tips only
+    ├── target-routing/p9a-adversarial         → integration-preview
+    └── target-routing/p9b-how-it-works        → p9a-adversarial
+```
+
+| Child | Content | Est. |
+|---|---|---|
+| `p6a-harness-config` | Validate launch profiles (multiplexer or plain terminal), agent catalog and per-project mode and allowed agents | ~300 |
+| `p6b-launch-order` | Build the closed, frozen launch order: argv arrays, exact root as working directory, agent safe-mode arguments from the catalog | ~280 |
+| `p7a-operation-gate` | In `agent-only` projects allow only launch, send prompt to the bound agent session and read its output; reject raw execution and terminal control sequences; a prompt after the agent session ended is refused | ~320 |
+| `p8a-approval-ledger` | Request, decide (human only), consume once; bound, expiring, revocable; never changes grants | ~300 |
+| `p8b-prompt-guard` | Flag references outside the project in dot's prompts (absolute paths, other drives, UNC, `..`, home and environment shortcuts) so they require approval; advisory | ~280 |
+| `p8c-output-watch` | Flag out-of-scope paths in agent output and recommend a pause; after the fact, advisory | ~220 |
+| `p9a-adversarial` | Compromised-dot scenarios across all phases: direct access, via the agent, injection, replay, stale approvals | ~300 |
+| `p9b-how-it-works` | End-to-end guide of how every piece works and fits together, with diagrams and worked examples | ~300 |
+
 ## Workflow for every child PR
 
 1. **Document first** in this folder: what it is, why, the problem, how, tasks

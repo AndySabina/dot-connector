@@ -1,6 +1,6 @@
 # Target routing — Stage 2 tracker
 
-> **Status: COMPLETE for the approved scope — reference only, not deployed.**
+> **Status: IN PROGRESS — approved scope done; harness phases 6–9 in progress. Reference only, not deployed.**
 > This folder lives under `lab/`, which is excluded from the distributed
 > package. Documentation here is a proposal: it is not implemented code and not
 > a real connection test. Nothing here connects to real machines, tunnels or
@@ -102,11 +102,14 @@ most 400 changed lines each. Full plan, phases and workflow:
 | 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ✅ Done |
 | 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ✅ Done |
 | 5 | `target-routing/p5-reports` | Results, limits, integration proposal and composition tests (p5a, p5b, p5c) | ✅ Done |
+| 6 | `target-routing/p6-launch` | Harness configuration and closed launch order (p6a, p6b) | ⏳ Planned |
+| 7 | `target-routing/p7-agent-gate` | Agent-only operation gate (p7a) | ⏳ Planned |
+| 8 | `target-routing/p8-approvals` | Approvals, prompt guard, output watch (p8a, p8b, p8c) | ⏳ Planned |
+| 9 | (on `integration-preview`) | Adversarial composition and how-it-works guide (p9a, p9b) | ⏳ Planned |
 
-Not implemented on purpose: the launch order (section C of SCOPE.md) and the
-pending user decisions (semantic filter, output monitor, mandatory approval).
-They would extend the assignment and could change existing authorizations;
-they remain proposals. See SCOPE.md.
+The harness (former section C and full section G) is being added by the
+user's product decision as phases 6 to 9; see PLAN.md. Its guards are advisory
+and approvals never change grants.
 
 ## Base
 

@@ -93,13 +93,13 @@ With the supplied configuration and policy, the code is meant to demonstrate:
 It does not demonstrate containment of a compromised dot or agent; that needs
 an independent execution boundary.
 
-## C. Launch order — future proposal, not implemented
+## C. Launch order — added by user decision (phases 6 and 7)
 
 Launch profiles (with or without a multiplexer such as herdr), an agent catalog
 and closed launch orders remain a proposal for a later stage. Nothing here
 implements them or makes an agent catalog mandatory.
 
-## Pending user decisions — not implemented
+## Former pending user decisions — added by user decision (phase 8)
 
 - Semantic filter of dot's messages.
 - Output monitor for out-of-scope paths (it could only warn after an access).
