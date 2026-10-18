@@ -110,21 +110,30 @@ then talk to that agent. These phases implement former section C and the full
 section G of SCOPE.md, with the same rules: pure reference code, fictional data,
 no execution, nothing integrated.
 
-Design decisions:
+Design decisions (each validated by the user, one by one):
 
-- **Per-project mode.** Each project declares `agent-only` (the harness, the
-  default) or `shell` (the generic observe/write/execute grants of phase 1).
-  The layer imposes nothing; the user chooses per project.
-- **Closed launch order.** Built only from the user's configuration: launch
-  profile (with a terminal multiplexer such as herdr, or a plain terminal),
-  agent catalog entry and the project root. Program and arguments are arrays;
-  no shell string, no interpolation, never text sent by dot. Real CLI flags are
-  user data, not invented here.
-- **Approvals always.** Anything outside the project needs a human decision.
-  Approvals are single-use, bound to project, session and request digest,
-  expire, and never change grants.
-- **Advisory guards.** The prompt guard and the output watch can flag and
-  escalate; they do not prevent anything and are never presented as protection.
+1. **Agent-only.** Every harness project is `agent-only`: dot can launch an
+   allowed agent in the exact root, send prompts to that agent and read its
+   output. There is no shell mode. This is the user's product decision and
+   differs from dot's earlier request not to impose an agent catalog; the final
+   report must state it.
+2. **Closed launch order.** Built only from the user's configuration: launch
+   profile (with a terminal multiplexer such as herdr, or a plain terminal),
+   agent catalog entry and the project root. dot only picks an agent id from the
+   project's allowed list. Program and arguments are arrays; no shell string,
+   no interpolation, never text sent by dot. A shell as the launched program is
+   refused. Real CLI flags are user data, not invented here.
+3. **Approvals always.** Anything outside the project needs a human decision.
+   dot can request but never grant. Approvals are single-use, bound to
+   project, session and request digest, expire, are revocable and never change
+   grants. The approval channel belongs to the integration.
+4. **Advisory guards.** The prompt guard (before a prompt reaches the agent)
+   holds prompts with out-of-scope references for approval; the output watch
+   (after the agent answers) recommends a pause. They do not prevent anything
+   and are never presented as protection.
+5. **Adversarial evidence and a guide.** Compromised-dot scenarios run across
+   all phases as tests, and an end-to-end guide explains how every piece works
+   and what each one does not protect.
 
 ```
 target-routing/tracker
@@ -144,9 +153,9 @@ target-routing/tracker
 
 | Child | Content | Est. |
 |---|---|---|
-| `p6a-harness-config` | Validate launch profiles (multiplexer or plain terminal), agent catalog and per-project mode and allowed agents | ~300 |
+| `p6a-harness-config` | Validate launch profiles (multiplexer or plain terminal), agent catalog and each project's launch profile and allowed agents | ~300 |
 | `p6b-launch-order` | Build the closed, frozen launch order: argv arrays, exact root as working directory, agent safe-mode arguments from the catalog | ~280 |
-| `p7a-operation-gate` | In `agent-only` projects allow only launch, send prompt to the bound agent session and read its output; reject raw execution and terminal control sequences; a prompt after the agent session ended is refused | ~320 |
+| `p7a-operation-gate` | In every harness project allow only launch, send prompt to the bound agent session and read its output; reject raw execution and terminal control sequences; a prompt after the agent session ended is refused | ~320 |
 | `p8a-approval-ledger` | Request, decide (human only), consume once; bound, expiring, revocable; never changes grants | ~300 |
 | `p8b-prompt-guard` | Flag references outside the project in dot's prompts (absolute paths, other drives, UNC, `..`, home and environment shortcuts) so they require approval; advisory | ~280 |
 | `p8c-output-watch` | Flag out-of-scope paths in agent output and recommend a pause; after the fact, advisory | ~220 |
