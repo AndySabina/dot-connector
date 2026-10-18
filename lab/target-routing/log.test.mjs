@@ -66,3 +66,51 @@ test('serialization is one stable line that parses back to the entry', () => {
   assert.deepEqual(Object.keys(JSON.parse(line)), [...Object.keys(entry)].sort());
   assert.throws(() => serializeLogEntry({...entry}), {message: 'LOG_INVALID'});
 });
+
+// JD-B-008: inputs are snapshotted once; accessors, symbols, hidden keys and traps are refused.
+const plainBase = () => ({schema: 1, sequence: 7, kind: 'path', decision: 'deny', reason: 'PATH_OUTSIDE_ROOT', operation: 'write'});
+
+test('a reason getter that changes after validation produces no entry', () => {
+  let calls = 0;
+  const fields = plainBase();
+  Object.defineProperty(fields, 'reason', {enumerable: true, get: () => ++calls <= 2 ? 'OK_CODE' : 'rm -rf /\n{"decision":"allow"}'});
+  let entry;
+  assert.throws(() => { entry = createLogEntry(fields); }, {message: 'LOG_INVALID'});
+  assert.equal(entry, undefined);
+  assert.equal(calls, 0);
+});
+
+test('getters, symbol keys, hidden fields and proxy traps are rejected as LOG_INVALID', () => {
+  let calls = 0;
+  for (const key of ['schema', 'sequence', 'kind', 'decision', 'operation', 'projectId']) {
+    const fields = plainBase();
+    const value = fields[key] ?? 'p-blog';
+    Object.defineProperty(fields, key, {enumerable: true, get: () => { calls++; return value; }});
+    assert.throws(() => createLogEntry(fields), {message: 'LOG_INVALID'}, key);
+  }
+  assert.throws(() => createLogEntry({...plainBase(), [Symbol('note')]: 'x'}), {message: 'LOG_INVALID'});
+  const hidden = plainBase();
+  Object.defineProperty(hidden, 'projectId', {enumerable: false, value: 'p-blog'});
+  assert.throws(() => createLogEntry(hidden), {message: 'LOG_INVALID'});
+  const trap = new Proxy(plainBase(), {ownKeys() { throw Error('TRAP'); }});
+  assert.throws(() => createLogEntry(trap), {message: 'LOG_INVALID'});
+  const {proxy, revoke} = Proxy.revocable(plainBase(), {});
+  revoke();
+  assert.throws(() => createLogEntry(proxy), {message: 'LOG_INVALID'});
+  assert.equal(calls, 0);
+});
+
+test('toLogEntry rejects getters and throwing proxies in sources as LOG_INVALID', () => {
+  let calls = 0;
+  const source = {reason: 'ALLOWED', operation: 'observe'};
+  Object.defineProperty(source, 'decision', {enumerable: true, get: () => { calls++; return 'allow'; }});
+  assert.throws(() => toLogEntry(8, 'resolution', source), {message: 'LOG_INVALID'});
+  const target = {machineId: 'm-alpha', tunnelId: 't-alpha'};
+  Object.defineProperty(target, 'projectId', {enumerable: true, get: () => { calls++; return 'p-blog'; }});
+  assert.throws(() => toLogEntry(9, 'resolution', {decision: 'allow', reason: 'ALLOWED', operation: 'observe', target}),
+    {message: 'LOG_INVALID'});
+  const trapBinding = new Proxy({...binding}, {getOwnPropertyDescriptor() { throw Error('TRAP'); }});
+  assert.throws(() => toLogEntry(10, 'result', {accepted: true, reason: 'ACCEPTED', binding: trapBinding}),
+    {message: 'LOG_INVALID'});
+  assert.equal(calls, 0);
+});

@@ -46,6 +46,14 @@ feature protects: commands, prompts, terminal output or private paths.
 - `toLogEntry` reads `decision`/`reason`/`operation` from a phase 1 decision,
   or `accepted`/`reason`/`operationId` from a phase 2 verdict, plus identifiers
   from `target` or `binding`. It never copies `root`, `pathSpace` or `data`.
+- Inputs are read once. `fields`, `source` and a present `target` or `binding`
+  are copied into a shallow snapshot before validation, and the entry is built
+  only from that snapshot. Only plain objects (prototype `Object.prototype` or
+  `null`, not arrays) with own enumerable string-keyed data properties qualify.
+  Getters and setters, symbol keys, non-enumerable properties and proxies whose
+  traps throw (including revoked proxies) → `LOG_INVALID`. Getters are never
+  called, and trap errors never escape. A `target` or `binding` that is absent
+  or `null` adds no identifiers.
 - Serialization sorts keys and produces a single line; validated values cannot
   contain line breaks.
 - No timestamps: ordering comes from `sequence`. Time, storage and retention
@@ -62,6 +70,13 @@ feature protects: commands, prompts, terminal output or private paths.
   identifiers with spaces or separators are rejected.
 - Entries are frozen; inputs are not modified; serialization is one stable line
   that parses back to the same entry.
+- A `reason` getter that returns a valid code while being validated and then
+  command text with injected JSON produces no entry (`LOG_INVALID`), and the
+  getter is never called.
+- Getters on other fields, symbol keys, non-enumerable fields, a proxy with a
+  throwing `ownKeys` trap and a revoked proxy → `LOG_INVALID`.
+- `toLogEntry` with a getter on `source.decision` or on `target.projectId`, or
+  with a proxy `binding` whose trap throws → `LOG_INVALID`; no getter is called.
 
 ## Limits
 
@@ -81,3 +96,16 @@ Node 22.23.3, local, fictional data only.
 - Not distributed: `dist/build-manifest.json` has no `target-routing` entry and
   `npm pack --dry-run` lists no `lab/` file.
 - No file under `src/`, `scripts/`, `test/` or `docs/` changed.
+
+Review round 2 (Judgment Day): JD-B-008 (`createLogEntry` validated
+`fields[k]` and then read it again to build the entry, so a changing getter
+could register command text and injected JSON). The fix adds a single-read
+snapshot (`plain`) and builds entries only from it. RED: with the previous
+`log.mjs`, the three new tests failed (`not ok 7 - a reason getter that changes
+after validation produces no entry`, `not ok 8 - getters, symbol keys, hidden
+fields and proxy traps are rejected as LOG_INVALID`, `not ok 9 - toLogEntry
+rejects getters and throwing proxies in sources as LOG_INVALID`, each with
+`Missing expected exception`): 9 tests, 6 pass, 3 fail. GREEN:
+`node --test lab/target-routing/log.test.mjs` — 9 tests, 9 pass;
+`node --test lab/target-routing/*.test.mjs` — 9 tests, 9 pass. `npm run build`
+exit 0; `npm run check:release` exit 0.
