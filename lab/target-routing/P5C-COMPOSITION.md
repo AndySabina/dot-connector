@@ -36,6 +36,9 @@ these tests, not a merge of the PRs: nothing is merged upstream.
 | resolver → context → switch | The decided target opens a session as is; after a switch the late result is rejected |
 | validation → output envelope | Accepted data is wrapped untrusted; hostile data accepted by `checkResult` is refused by `wrapUntrusted` |
 | decisions → log | Entries carry identifiers and reasons, never roots or data |
+| registry ↔ paths | Both accept or both refuse a table of tricky Windows roots (reserved names, trailing dots and spaces, forbidden characters, non-ASCII, drive root) |
+| context → switch | A state captured before a switch is stale and cannot accept the late result or dispatch work |
+| registry → resolver | An ungranted principal gets TARGET_UNKNOWN for every probe, including a stale version |
 
 ## Reproduce
 
@@ -63,6 +66,14 @@ Node 22.23.3, local.
   pass. The composition tests catch both review findings.
 - All lab tests on this branch: 71 tests, 71 pass. `npm run build` and
   `npm run check:release` exit 0; `npm pack --dry-run` lists no `lab/` file.
+
+## Review round 2 (Judgment Day)
+
+Three composition tests were added for the round-2 findings. With the
+pre-fix modules (`registry.mjs` at `a5a2f37`, `resolver.mjs` at `2612f56`,
+`paths.mjs` at `5d322e9`, `switch.mjs` at `2bbe000`) copied into a temporary
+directory, the three new tests fail (7 pass, 3 fail); with the fixed modules all
+10 pass.
 
 ## Limits
 

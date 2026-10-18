@@ -98,3 +98,37 @@ test('decisions and verdicts → log: entries carry identifiers and reasons, nev
   assert.equal(JSON.parse(lines[1]).decision, 'accepted');
   for (const line of lines) assert.ok(!line.includes('work') && !line.includes('secret'), line);
 });
+
+// Judgment Day round 2: the registry and paths.mjs must agree on every root, not only the fixture's.
+test('registry and paths agree on tricky Windows roots', () => {
+  const roots = ['C:\\work\\nul', 'C:\\work\\shop.', 'C:\\work\\shop ', 'C:\\com1\\x', 'C:\\work\\nul .d', 'C:\\work\\a*b',
+    'C:\\work\\shop', 'C:\\Users\\\u0130smail\\proj', 'C:\\work\\nully .d', 'C:\\'];
+  for (const root of roots) {
+    let registryAccepts = true;
+    try {
+      validateRegistry({schema: 1, version: 1, machines: [{machineId: 'm-alpha'}], tunnels: [{tunnelId: 't-alpha', machineId: 'm-alpha'}],
+        projects: [{machineId: 'm-alpha', projectId: 'p-x', tunnelId: 't-alpha', pathSpace: 'windows', root, grants: []}]});
+    } catch (error) {
+      assert.equal(error.message, 'REGISTRY_INVALID_ROOT', root);
+      registryAccepts = false;
+    }
+    assert.equal(resolveWindowsPath(root, '.').ok, registryAccepts, root);
+  }
+});
+
+test('a state captured before a switch cannot accept the late result', () => {
+  const shop = createSessionContext(resolve({machineId: 'm-alpha', projectId: 'p-shop', operation: 'write'}).target, session(5));
+  const before = markDispatched(queueOperation(openWorkspace(shop), 'op-5'), 'op-5');
+  switchProject(before, createSessionContext(resolve({machineId: 'm-alpha', projectId: 'p-blog'}).target, session(6)));
+  assert.equal(completeOperation(before, {...bindRequest(shop, 'op-5'), data: 'late'}).verdict.reason, 'LEDGER_STALE');
+  assert.throws(() => markDispatched(queueOperation(before, 'op-6'), 'op-6'), {message: 'LEDGER_STALE'});
+});
+
+test('an ungranted principal learns nothing about the composed registry', () => {
+  const stranger = {principalId: 'u-other', tunnelStatus: trusted.tunnelStatus};
+  for (const fields of [{projectId: 'p-shop'}, {machineId: 'm-alpha', projectId: 'p-shop'}, {machineId: 'm-beta', projectId: 'p-blog'},
+    {machineId: 'm-alpha', projectId: 'p-none'}]) {
+    assert.equal(resolve(fields, stranger).reason, 'TARGET_UNKNOWN', JSON.stringify(fields));
+  }
+  assert.equal(resolveTarget(registry, stranger, {schema: 1, configVersion: 1, projectId: 'p-shop', operation: 'observe'}).reason, 'TARGET_UNKNOWN');
+});
