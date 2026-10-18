@@ -52,6 +52,32 @@ they fail on both review findings; with the fixed modules they pass.
 
 Fixes reached child branches by merge, without rewriting published history.
 
+## Review round 2 (Judgment Day)
+
+Own adversarial review of the whole reference at `1cd1deb` with two blind
+judges. Judge A returned no result and was not retried; judge B reported 10
+rows. Both HIGH rows were reproduced by hand before fixing.
+
+| ID | Severity | Fix | Branch |
+|---|---|---|---|
+| JD-B-001 | HIGH | Only the current state of a ledger can advance; captured states are stale | p2c `3ce5c3c` |
+| JD-B-002 | HIGH | Windows containment compares segments and folds ASCII case only | p3a `70b106f` |
+| JD-B-003 | WARNING | Equal or nested roots on one machine are refused | p1c `be9196a` |
+| JD-B-004 | WARNING | Registry roots follow the segment rules of `paths.mjs` | p1c `be9196a` |
+| JD-B-005 | WARNING | Requests and contexts are read once as snapshots; never throws | p1c `67507d2` |
+| JD-B-006 | WARNING | Results are read once as snapshots; never throws | p2a `a992a90` |
+| JD-B-007 | WARNING | Contexts are built from one read of target and session | p2a `a992a90` |
+| JD-B-008 | WARNING | Log entries are built from one read of each source | p4a `50c91c4` |
+| JD-B-009 | WARNING | Reserved names detected before the extension after spaces | p3a `70b106f` |
+| JD-B-010 | WARNING | Ungranted principals get TARGET_UNKNOWN for every probe | p1c `67507d2` |
+
+Every fix started with tests that failed against the reviewed code (RED). New
+children p1c and p2c keep each PR within 400 changed lines. Composition tests
+in p5c fail 3 of 10 against the pre-fix modules and pass 10 of 10 with the
+fixes. A scoped re-judgment by judge B against the fix diff returned `verified`
+for all 10 rows. The re-judgment was not independent of the original judge,
+and judge A's view is missing.
+
 ## Original minimum cases → tests
 
 | Case | Evidence |
