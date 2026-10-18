@@ -12,8 +12,8 @@ The result is a closed, frozen launch order that the executor can run as is.
 
 ## Why it exists
 
-In `agent-only` projects the only thing dot may start on the user's machine is
-the configured agent. If dot could choose the program, its arguments or the
+In the harness every project is `agent-only`: the only thing dot may start on
+the user's machine is a configured agent. If dot could choose the program, its arguments or the
 folder, it could start anything. The launch order must therefore be fully
 determined by the user's configuration.
 
@@ -27,8 +27,7 @@ determined by the user's configuration.
 ## How
 
 - Configuration (p6a): launch profiles, an agent catalog and, per project, a
-  mode (`agent-only` default, or `shell`), a launch profile and the allowed
-  agents. Programs and arguments are arrays of plain strings; real CLI flags
+  launch profile and the allowed agents. There is no shell mode. Programs and arguments are arrays of plain strings; real CLI flags
   are user data.
 - Launch order (p6b): profile argv + agent argv + optional safe-mode argv from
   the catalog, with the project root as working directory. No string is built,
