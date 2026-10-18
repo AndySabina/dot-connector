@@ -6,11 +6,30 @@ const REQUIRED = ['schema', 'configVersion', 'projectId', 'operation'];
 const OPTIONAL = ['machineId', 'tunnelId'];
 const label = /^[A-Za-z0-9_-]{1,64}$/;
 
-const object = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 const id = x => typeof x === 'string' && label.test(x);
 
+// One read of a plain object: own enumerable string-keyed data properties only.
+// Accessors, symbol keys, other prototypes and throwing proxy traps yield null.
+function snapshot(x) {
+  try {
+    if (x === null || typeof x !== 'object') return null;
+    const proto = Reflect.getPrototypeOf(x);
+    if (proto !== Object.prototype && proto !== null) return null;
+    const copy = Object.create(null);
+    for (const key of Reflect.ownKeys(x)) {
+      if (typeof key !== 'string') return null;
+      const d = Object.getOwnPropertyDescriptor(x, key);
+      if (!d || !d.enumerable || !Object.hasOwn(d, 'value')) return null;
+      copy[key] = d.value;
+    }
+    return copy;
+  } catch {
+    return null;
+  }
+}
+
 function validRequest(r) {
-  if (!object(r)) return false;
+  if (!r) return false;
   const keys = Object.keys(r);
   if (!REQUIRED.every(k => keys.includes(k)) || keys.some(k => !REQUIRED.includes(k) && !OPTIONAL.includes(k))) return false;
   return r.schema === 1 && Number.isSafeInteger(r.configVersion) && r.configVersion >= 0 && id(r.projectId) &&
@@ -18,9 +37,12 @@ function validRequest(r) {
 }
 
 // The context comes from the caller's trusted mechanism, never from the request.
-function validContext(c) {
-  return object(c) && Object.keys(c).sort().join(',') === 'principalId,tunnelStatus' && id(c.principalId) &&
-    object(c.tunnelStatus) && Object.values(c.tunnelStatus).every(s => s === 'up' || s === 'down');
+function contextSnapshot(c) {
+  const copy = snapshot(c);
+  if (!copy || Object.keys(copy).sort().join(',') !== 'principalId,tunnelStatus' || !id(copy.principalId)) return null;
+  const tunnelStatus = snapshot(copy.tunnelStatus);
+  if (!tunnelStatus || !Object.values(tunnelStatus).every(s => s === 'up' || s === 'down')) return null;
+  return {principalId: copy.principalId, tunnelStatus};
 }
 
 function decide(decision, reason, operation, target) {
@@ -29,27 +51,40 @@ function decide(decision, reason, operation, target) {
   return Object.freeze(result);
 }
 
-export function resolveTarget(registry, context, request) {
-  const operation = object(request) && OPERATIONS.includes(request.operation) ? request.operation : null;
+// A project is visible only to a principal holding at least one allowed operation in it.
+const visibleTo = (project, principalId) =>
+  project.grants.some(g => g.principalId === principalId && OPERATIONS.some(op => g[op] === true));
+
+export function resolveTarget(registry, context, rawRequest) {
+  const request = snapshot(rawRequest);
+  const operation = request && OPERATIONS.includes(request.operation) ? request.operation : null;
   const deny = reason => decide('deny', reason, operation);
 
   if (!isRegistry(registry)) return deny('REGISTRY_UNVERIFIED');
   if (!validRequest(request)) return decide('deny', 'REQUEST_INVALID', null);
-  if (!validContext(context)) return deny('REQUESTER_UNVERIFIED');
+  const trusted = contextSnapshot(context);
+  if (!trusted) return deny('REQUESTER_UNVERIFIED');
+
+  // Lookup runs over visible projects only, so a principal without a grant
+  // cannot tell unknown, ambiguous, misplaced or stale targets apart.
+  const named = registry.projects.filter(p => p.projectId === request.projectId);
+  const visible = named.filter(p => visibleTo(p, trusted.principalId));
+  if (visible.length === 0) return deny('TARGET_UNKNOWN');
+  let project;
+  if (Object.hasOwn(request, 'machineId')) {
+    project = visible.find(p => p.machineId === request.machineId);
+    if (!project) return deny('TARGET_UNKNOWN');
+  } else {
+    if (named.length > 1) return deny('TARGET_AMBIGUOUS');
+    project = visible[0];
+  }
+  if (Object.hasOwn(request, 'tunnelId') && request.tunnelId !== project.tunnelId) return deny('TARGET_INCONSISTENT');
   if (request.configVersion !== registry.version) return deny('CONFIG_STALE');
 
-  const named = registry.projects.filter(p => p.projectId === request.projectId);
-  const matches = Object.hasOwn(request, 'machineId') ? named.filter(p => p.machineId === request.machineId) : named;
-  if (matches.length === 0) return deny(named.length === 0 ? 'TARGET_UNKNOWN' : 'TARGET_INCONSISTENT');
-  if (matches.length > 1) return deny('TARGET_AMBIGUOUS');
-  const project = matches[0];
-  if (Object.hasOwn(request, 'tunnelId') && request.tunnelId !== project.tunnelId) return deny('TARGET_INCONSISTENT');
-
-  const grant = project.grants.find(g => g.principalId === context.principalId);
-  if (!grant) return deny('PERMISSION_MISSING');
+  const grant = project.grants.find(g => g.principalId === trusted.principalId);
   if (grant[operation] !== true) return deny('PERMISSION_DENIED');
   // Never fall back to another tunnel, machine or project.
-  if (!Object.hasOwn(context.tunnelStatus, project.tunnelId) || context.tunnelStatus[project.tunnelId] !== 'up') {
+  if (!Object.hasOwn(trusted.tunnelStatus, project.tunnelId) || trusted.tunnelStatus[project.tunnelId] !== 'up') {
     return deny('TUNNEL_UNAVAILABLE');
   }
 
