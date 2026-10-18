@@ -15,6 +15,26 @@ const exact = (x, keys) => object(x) && Object.keys(x).sort().join(',') === [...
 const id = x => typeof x === 'string' && label.test(x);
 const version = x => Number.isSafeInteger(x) && x >= 0;
 
+// Shallow snapshot of an untrusted plain object, or null. Each key and descriptor is read once and
+// getters never run, so later reads cannot differ from what was validated.
+function plain(value) {
+  try {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const copy = Object.create(null);
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key === 'symbol') return null;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) return null;
+      copy[key] = descriptor.value;
+    }
+    return copy;
+  } catch {
+    return null;
+  }
+}
+
 function validTarget(t) {
   return exact(t, TARGET) && id(t.machineId) && id(t.tunnelId) && id(t.projectId) &&
     ['windows', 'wsl'].includes(t.pathSpace) && typeof t.root === 'string' && t.root.length > 0 &&
@@ -28,7 +48,8 @@ function validBinding(b) {
     typeof b.incarnation === 'string' && uuid.test(b.incarnation) && version(b.configVersion);
 }
 
-export function createSessionContext(target, session) {
+export function createSessionContext(untrustedTarget, untrustedSession) {
+  const target = plain(untrustedTarget), session = plain(untrustedSession);
   if (!validTarget(target) || !validSession(session)) fail('CONTEXT_INVALID');
   const context = Object.freeze({
     machineId: target.machineId, tunnelId: target.tunnelId, projectId: target.projectId, pathSpace: target.pathSpace,
@@ -49,14 +70,16 @@ export function bindRequest(context, operationId) {
 }
 
 // Result data stays untrusted data; it is returned untouched and never interpreted.
-export function checkResult(context, result) {
+export function checkResult(context, untrustedResult) {
   const verdict = (accepted, reason, operationId, data) =>
     Object.freeze(accepted ? {accepted, reason, operationId, data} : {accepted, reason, operationId});
   if (!created.has(context)) return verdict(false, 'CONTEXT_UNVERIFIED', null);
+  const result = plain(untrustedResult);
+  const binding = result && plain(result.binding);
   if (!exact(result, ['operationId', 'binding', 'data']) || typeof result.operationId !== 'string' ||
-    !operationLabel.test(result.operationId) || !validBinding(result.binding)) return verdict(false, 'RESULT_INVALID', null);
+    !operationLabel.test(result.operationId) || !validBinding(binding)) return verdict(false, 'RESULT_INVALID', null);
 
-  const {binding, operationId} = result;
+  const {operationId} = result;
   if (['machineId', 'tunnelId', 'projectId'].some(k => binding[k] !== context[k])) {
     return verdict(false, 'RESULT_TARGET_MISMATCH', operationId);
   }
