@@ -1,6 +1,6 @@
 # Target routing — Stage 2 tracker
 
-> **Status: PROPOSAL — reference only, not deployed.**
+> **Status: COMPLETE for the approved scope — reference only, not deployed.**
 > This folder lives under `lab/`, which is excluded from the distributed
 > package. Documentation here is a proposal: it is not implemented code and not
 > a real connection test. Nothing here connects to real machines, tunnels or
@@ -95,13 +95,18 @@ most 400 changed lines each. Full plan, phases and workflow:
 
 | Phase | Branch | Purpose | Status |
 |---|---|---|---|
-| — | `target-routing/tracker` | Feature tracker, scope and plan | 🚧 Proposal, scope approved with adjustments |
+| — | `target-routing/tracker` | Feature tracker, scope and plan | ✅ Approved scope complete; never merged upstream |
 | 0 | (in tracker) | Foundation and short diagnosis: [01-DIAGNOSIS.md](01-DIAGNOSIS.md) | ✅ Done |
-| 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b) | ⏸️ Planned, implementation on hold |
-| 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b) | ⏳ Planned |
-| 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ⏳ Planned |
-| 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ⏳ Planned |
-| 5 | `target-routing/p5-reports` | Results, limits and integration proposal (p5a, p5b) | ⏳ Planned |
+| 1 | `target-routing/p1-registry` | Registry and resolution (p1a, p1b, p1c) | ✅ Done |
+| 2 | `target-routing/p2-sessions` | Sessions and context (p2a, p2b, p2c) | ✅ Done |
+| 3 | `target-routing/p3-paths` | Paths (p3a, p3b, p3c) | ✅ Done |
+| 4 | `target-routing/p4-decision-log` | Decision log and untrusted output (p4a, p4b) | ✅ Done |
+| 5 | `target-routing/p5-reports` | Results, limits, integration proposal and composition tests (p5a, p5b, p5c) | ✅ Done |
+
+Not implemented on purpose: the launch order (section C of SCOPE.md) and the
+pending user decisions (semantic filter, output monitor, mandatory approval).
+They would extend the assignment and could change existing authorizations;
+they remain proposals. See SCOPE.md.
 
 ## Base
 

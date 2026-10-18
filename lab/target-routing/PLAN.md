@@ -24,10 +24,12 @@ main (407f942)
 └── target-routing/tracker                    draft, never merged upstream
     ├── target-routing/p1-registry            → tracker
     │   ├── target-routing/p1a-registry-model     → p1-registry
-    │   └── target-routing/p1b-target-resolution  → p1a-registry-model
+    │   ├── target-routing/p1b-target-resolution  → p1a-registry-model
+    │   └── target-routing/p1c-resolver-hardening → p1b-target-resolution
     ├── target-routing/p2-sessions            → tracker
     │   ├── target-routing/p2a-context-binding    → p2-sessions
-    │   └── target-routing/p2b-project-switch     → p2a-context-binding
+    │   ├── target-routing/p2b-project-switch     → p2a-context-binding
+    │   └── target-routing/p2c-ledger-lineage     → p2b-project-switch
     ├── target-routing/p3-paths               → tracker
     │   ├── target-routing/p3a-windows-paths      → p3-paths
     │   ├── target-routing/p3b-wsl-paths          → p3a-windows-paths
@@ -35,9 +37,11 @@ main (407f942)
     ├── target-routing/p4-decision-log        → tracker
     │   ├── target-routing/p4a-decision-log       → p4-decision-log
     │   └── target-routing/p4b-untrusted-output   → p4a-decision-log
-    └── target-routing/p5-reports             → tracker
-        ├── target-routing/p5a-results-limits     → p5-reports
-        └── target-routing/p5b-integration        → p5a-results-limits
+    ├── target-routing/p5-reports             → tracker
+    │   ├── target-routing/p5a-results-limits     → p5-reports
+    │   └── target-routing/p5b-integration        → p5a-results-limits
+    └── target-routing/integration-preview    merges the phase tips only; no PR
+        └── target-routing/p5c-composition        → integration-preview
 ```
 
 ## Phases
@@ -85,7 +89,17 @@ the tracker PR; no separate phase branch.
 | `p5a-results-limits` | Results of all tests and what cannot be demonstrated | ~200 |
 | `p5b-integration` | Integration proposal: the executor must validate and enforce every decision | ~200 |
 
-Totals: 5 implementation phases, 13 child PRs.
+Totals: 5 implementation phases, 13 planned child PRs.
+
+### Added during review
+
+| Child | Why | PR |
+|---|---|---|
+| `p5c-composition` | Review round 1 (dot): committed composition tests across phases, on `integration-preview` | #18 |
+| `p1c-resolver-hardening` | Review round 2 (own Judgment Day): registry roots and resolver fixes, kept apart so p1a and p1b stay within 400 lines | #19 |
+| `p2c-ledger-lineage` | Review round 2: only the current ledger state can advance | #20 |
+
+Final total: 16 child PRs, all within 400 changed lines.
 
 ## Workflow for every child PR
 
