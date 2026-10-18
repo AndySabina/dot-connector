@@ -51,6 +51,7 @@ independently. Joining them belongs to the integration proposal (phase 5).
 |---|---|---|---|---|---|
 | p2a | `target-routing/p2a-context-binding` | `p2-sessions` | Session context, request binding, late-result rejection | ~260 | ✅ [P2A-CONTEXT-BINDING.md](P2A-CONTEXT-BINDING.md) |
 | p2b | `target-routing/p2b-project-switch` | `p2a-context-binding` | Explicit switch: revalidation, pending operations stay uncertain and are not repeated, nothing carried over | ~320 | ✅ [P2B-PROJECT-SWITCH.md](P2B-PROJECT-SWITCH.md) |
+| p2c | `target-routing/p2c-ledger-lineage` | `p2b-project-switch` | Fix JD-B-001: frozen states with a single current state per ledger; stale states refuse transitions and late results (`LEDGER_STALE`) | ~150 | ✅ [P2C-LEDGER-LINEAGE.md](P2C-LEDGER-LINEAGE.md) |
 
 ## Limits
 
