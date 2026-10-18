@@ -110,7 +110,7 @@ then talk to that agent. These phases implement former section C and the full
 section G of SCOPE.md, with the same rules: pure reference code, fictional data,
 no execution, nothing integrated.
 
-Design decisions (each validated by the user, one by one):
+Design decisions (1 to 4 and 6 validated by the user one by one; 5 added by the tech lead after the user's question about concurrent work):
 
 1. **Agent-only.** Every harness project is `agent-only`: dot can launch an
    allowed agent in the exact root, send prompts to that agent and read its
@@ -131,7 +131,12 @@ Design decisions (each validated by the user, one by one):
    holds prompts with out-of-scope references for approval; the output watch
    (after the agent answers) recommends a pause. They do not prevent anything
    and are never presented as protection.
-5. **Adversarial evidence and a guide.** Compromised-dot scenarios run across
+5. **Concurrent sessions.** Several projects can be worked on at the same time;
+   each has its own agent session, context and ledger, and nothing is shared
+   between them. This layer cannot stop dot itself from sending a prompt meant
+   for one project to another; it guarantees that every prompt and result is
+   bound to exactly one session.
+6. **Adversarial evidence and a guide.** Compromised-dot scenarios run across
    all phases as tests, and an end-to-end guide explains how every piece works
    and what each one does not protect.
 
@@ -155,11 +160,11 @@ target-routing/tracker
 |---|---|---|
 | `p6a-harness-config` | Validate launch profiles (multiplexer or plain terminal), agent catalog and each project's launch profile and allowed agents | ~300 |
 | `p6b-launch-order` | Build the closed, frozen launch order: argv arrays, exact root as working directory, agent safe-mode arguments from the catalog | ~280 |
-| `p7a-operation-gate` | In every harness project allow only launch, send prompt to the bound agent session and read its output; reject raw execution and terminal control sequences; a prompt after the agent session ended is refused | ~320 |
+| `p7a-operation-gate` | In every harness project allow only launch, send prompt to the bound agent session and read its output; reject raw execution and terminal control sequences; a prompt after the agent session ended is refused ; several agent sessions can be open at once, each prompt is bound to exactly one session and its results can only complete that session | ~320 |
 | `p8a-approval-ledger` | Request, decide (human only), consume once; bound, expiring, revocable; never changes grants | ~300 |
 | `p8b-prompt-guard` | Flag references outside the project in dot's prompts (absolute paths, other drives, UNC, `..`, home and environment shortcuts) so they require approval; advisory | ~280 |
 | `p8c-output-watch` | Flag out-of-scope paths in agent output and recommend a pause; after the fact, advisory | ~220 |
-| `p9a-adversarial` | Compromised-dot scenarios across all phases: direct access, via the agent, injection, replay, stale approvals | ~300 |
+| `p9a-adversarial` | Compromised-dot scenarios across all phases: direct access, via the agent, injection, replay, stale approvals, and several concurrent sessions receiving each other's results | ~300 |
 | `p9b-how-it-works` | End-to-end guide of how every piece works and fits together, with diagrams and worked examples | ~300 |
 
 ## Workflow for every child PR
