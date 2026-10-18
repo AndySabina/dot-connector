@@ -40,7 +40,7 @@ Phase 6 does not import other phases. It reads the phase 1 target shape.
 
 | Child | Branch | Targets | Content | Est. | Status |
 |---|---|---|---|---|---|
-| p6a | `target-routing/p6a-harness-config` | `p6-launch` | Harness configuration validation | ~300 | 🚧 In progress |
+| p6a | `target-routing/p6a-harness-config` | `p6-launch` | Harness configuration validation | ~300 | ✅ [P6A-HARNESS-CONFIG.md](P6A-HARNESS-CONFIG.md) |
 | p6b | `target-routing/p6b-launch-order` | `p6a-harness-config` | Closed launch order builder | ~280 | ⏳ Planned |
 
 ## Limits
